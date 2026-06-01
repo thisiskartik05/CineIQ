@@ -1,4 +1,6 @@
-streamlit
+fastapi
+uvicorn
+pydantic
 pandas
 numpy
 scikit-learn
@@ -6,4 +8,3 @@ scipy
 vaderSentiment
 transformers
 torch
-plotly
