@@ -2,7 +2,7 @@ import random
 from pymongo import MongoClient
 
 # Insert your actual password here
-MONGO_URI = "mongodb+srv://admin:<password>@shared-canvas.vwgpbwe.mongodb.net/cineiq?retryWrites=true&w=majority"
+MONGO_URI = "mongodb+srv://admin:12345@shared-canvas.vwgpbwe.mongodb.net/cineiq?retryWrites=true&w=majority"
 
 def generate_mock_users(num_users=5000):
     print("Connecting to MongoDB Atlas...")

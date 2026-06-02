@@ -1,19 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import pandas as pd
-import numpy as np
+import torch
 import pickle
-import math
-import gc
+import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from transformers import pipeline
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import MongoClient
 
-app = FastAPI(title="CineIQ API")
+app = FastAPI()
 
-# Allow frontend to communicate with backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -22,102 +16,114 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── MongoDB Setup ────────────────────────────────────────────────────────
-# Put your ACTUAL connection string here before running!
-MONGO_URI = "mongodb+srv://admin:<password>@shared-canvas.vwgpbwe.mongodb.net/cineiq?retryWrites=true&w=majority"
-client = AsyncIOMotorClient(MONGO_URI)
+# --- 1. DATABASE SETUP ---
+# REPLACE [PASSWORD] WITH YOUR ACTUAL ATLAS PASSWORD
+MONGO_URI = "mongodb+srv://admin:12345@shared-canvas.vwgpbwe.mongodb.net/cineiq?retryWrites=true&w=majority"
+client = MongoClient(MONGO_URI)
 db = client.cineiq
-movies_collection = db.movies
 
-# ── Load ML Models at Startup ────────────────────────────────────────────
-print("Loading ML models into memory...")
-with open('models/tfidf.pkl', 'rb') as f:
-    tfidf = pickle.load(f)
-
-# Load indices to map Title -> Matrix Index
-indices = pd.read_csv('models/indices_ml.csv', index_col=0).squeeze()
-# Create a reverse lookup (Matrix Index -> Title) for our DB queries later
-index_to_title = {v: k for k, v in indices.items()}
-
-# ONLY load the text needed to build the matrix to save massive RAM!
+# --- 2. LOAD ENGINE A: TF-IDF (Content-Based) ---
+print("Loading Engine A: TF-IDF Content Matcher...")
 try:
-    tmdb_ml = pd.read_csv('models/tmdb_ml.csv', usecols=['soup'])
-    text_data = tmdb_ml['soup']
-except ValueError:
-    tmdb_ml = pd.read_csv('models/tmdb_ml.csv', usecols=['overview'])
-    text_data = tmdb_ml['overview'].fillna('')
-
-print("Building Cosine Similarity Matrix...")
-matrix = tfidf.transform(text_data)
-cosine_sim = cosine_similarity(matrix, matrix)
-
-# ── MEMORY OPTIMIZATION ──────────────────────────────────────────────────
-# The matrix is built. We no longer need the Pandas DataFrame!
-del tmdb_ml
-del text_data
-gc.collect() # Force Python to free up the RAM immediately
-print("DataFrame deleted from RAM. Matrix ready.")
-
-vader = SentimentIntensityAnalyzer()
-transformer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
-
-# ── Pydantic Models ──────────────────────────────────────────────────────
-class MovieRequest(BaseModel):
-    title: str
-
-class ReviewRequest(BaseModel):
-    review: str
-
-# ── Endpoints ────────────────────────────────────────────────────────────
-@app.post("/recommend")
-async def recommend_movies(req: MovieRequest, n: int = 10):
-    if req.title not in indices.index:
-        raise HTTPException(status_code=404, detail="Movie not found. Try another title.")
-
-    # 1. Do the heavy math purely in memory
-    idx = indices[req.title]
-    # Handle duplicate titles if any exist by taking the first one
-    if isinstance(idx, pd.Series): idx = idx.iloc[0] 
+    with open('models/tfidf.pkl', 'rb') as f:
+        tfidf_matrix = pickle.load(f)
+    tmdb_df = pd.read_csv('models/tmdb_ml.csv')
+    indices_df = pd.read_csv('models/indices_ml.csv')
     
-    sim_scores = sorted(enumerate(cosine_sim[idx]), key=lambda x: x[1], reverse=True)[1:31]
-    
-    # Extract the indices and scores
-    candidate_indices = [i[0] for i in sim_scores]
-    candidate_scores = {i[0]: i[1] for i in sim_scores} # Map index -> similarity score
-    candidate_titles = [index_to_title[i] for i in candidate_indices]
+    # Create mapping for content engine
+    content_indices = pd.Series(indices_df.index, index=indices_df['title'].str.lower()).drop_duplicates()
+    print("✅ Engine A Loaded!")
+except Exception as e:
+    print(f"❌ Failed to load TF-IDF: {e}")
 
-    # 2. Async Query to MongoDB (Fetch rich metadata ONLY for the 30 candidates)
-    cursor = movies_collection.find({"title": {"$in": candidate_titles}})
-    movies_from_db = await cursor.to_list(length=30)
-
-    # 3. Apply Sentiment Math and Format Results
-    results = []
-    for movie in movies_from_db:
-        title = movie.get('title')
-        movie_idx = indices[title]
-        if isinstance(movie_idx, pd.Series): movie_idx = movie_idx.iloc[0]
+# --- 3. LOAD ENGINE B: LightGCN (Collaborative Graph) ---
+print("Loading Engine B: LightGCN Graph Neural Network...")
+try:
+    with open("models/lightgcn_embeddings.pkl", "rb") as f:
+        graph_data = pickle.load(f)
         
-        content_score = candidate_scores.get(movie_idx, 0)
+    movie_embeddings = torch.tensor(graph_data['movie_embeddings'])
+    title_to_idx = graph_data['title_to_idx']
+    idx_to_title = graph_data['idx_to_title']
+    
+    # Create mapping for graph engine
+    graph_lower_to_idx = {title.lower(): idx for title, idx in title_to_idx.items()}
+    print("✅ Engine B Loaded!")
+except Exception as e:
+    print(f"❌ Failed to load LightGCN: {e}")
 
-        # Handle sentiment value safely
-        sentiment = movie.get('sentiment', 0)
-        if sentiment is None or math.isnan(sentiment):
-            sentiment = 0
 
-        sentiment_scaled = (sentiment + 1) * 2.5
-        final = round(0.6 * content_score * 5 + 0.4 * sentiment_scaled, 2)
-
-        sent_label = 'positive' if sentiment > 0.05 else 'negative' if sentiment < -0.05 else 'mixed'
-        reason = f"Content match with '{req.title}' · {sent_label} audience reception"
-
-        results.append({
-            'title': title,
-            'score': final,
-            'sentiment': round(sentiment, 3),
-            'reason': reason,
-            'overview': movie.get('overview', '')
+# --- ENDPOINT A: CONTENT MATCH (Old Logic) ---
+@app.get("/api/recommend/content/{search_query}")
+async def get_content_recommendations(search_query: str, top_k: int = 5):
+    query_lower = search_query.lower().strip()
+    
+    if query_lower not in content_indices:
+        raise HTTPException(status_code=404, detail="Movie not found in content database.")
+        
+    idx = content_indices[query_lower]
+    
+    # If a movie has multiple entries, grab the first one
+    if isinstance(idx, pd.Series):
+        idx = idx.iloc[0]
+        
+    # Cosine Similarity Math
+    sim_scores = list(enumerate(cosine_similarity(tfidf_matrix[idx], tfidf_matrix)[0]))
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+    sim_scores = sim_scores[1:top_k+1] # Skip the movie itself
+    
+    movie_indices = [i[0] for i in sim_scores]
+    raw_scores = [i[1] for i in sim_scores]
+    
+    recommendations = []
+    for i, m_idx in enumerate(movie_indices):
+        title = tmdb_df.iloc[m_idx]['title']
+        score = int(raw_scores[i] * 100)
+        
+        db_movie = db.movies.find_one({"title": title})
+        poster = db_movie.get("poster_path", "https://via.placeholder.com/500x750") if db_movie else "https://via.placeholder.com/500x750"
+        if poster.startswith("/"): poster = f"https://image.tmdb.org/t/p/w500{poster}"
+            
+        recommendations.append({
+            "id": int(m_idx), "title": title, "score": score, 
+            "reason": "Plot/Genre Match", "poster": poster
         })
+        
+    return {"results": recommendations}
 
-    # Sort results by the final computed score
-    final_results = sorted(results, key=lambda x: x['score'], reverse=True)[:n]
-    return {"recommendations": final_results}
+
+# --- ENDPOINT B: GRAPH MATCH (New Logic) ---
+@app.get("/api/recommend/graph/{search_query}")
+async def get_graph_recommendations(search_query: str, top_k: int = 5):
+    query_lower = search_query.lower().strip()
+    
+    if query_lower not in graph_lower_to_idx:
+        raise HTTPException(status_code=404, detail="Movie not found in graph database.")
+        
+    target_idx = graph_lower_to_idx[query_lower]
+    target_vector = movie_embeddings[target_idx]
+    
+    # Dot Product Math
+    scores = torch.matmul(movie_embeddings, target_vector)
+    top_scores, top_indices = torch.topk(scores, top_k + 1)
+    
+    recommendations = []
+    for i in range(len(top_indices)):
+        m_idx = top_indices[i].item()
+        if m_idx == target_idx: continue
+            
+        title = idx_to_title[m_idx]
+        raw_score = top_scores[i].item()
+        match_percentage = min(99, max(75, int(raw_score * 10) + 70)) 
+        
+        db_movie = db.movies.find_one({"title": title})
+        poster = db_movie.get("poster_path", "https://via.placeholder.com/500x750") if db_movie else "https://via.placeholder.com/500x750"
+        if poster.startswith("/"): poster = f"https://image.tmdb.org/t/p/w500{poster}"
+            
+        recommendations.append({
+            "id": m_idx, "title": title, "score": match_percentage, 
+            "reason": "Audience Behavior Match", "poster": poster
+        })
+        if len(recommendations) == top_k: break
+            
+    return {"results": recommendations}
