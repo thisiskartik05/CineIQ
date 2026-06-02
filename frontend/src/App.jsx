@@ -7,7 +7,7 @@ function App() {
   const [error, setError] = useState(null);
 
   // This will be updated to your Render URL later
-  const BACKEND_URL = "https://cineiq-backend.onrender.com";
+  const BACKEND_URL = "https://thisiskartik05-cineiq-api.hf.space";
 
   const getRecommendations = async () => {
     if (!movie) return;
