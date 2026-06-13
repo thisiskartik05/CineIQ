@@ -22,37 +22,87 @@ MONGO_URI = "mongodb+srv://admin:12345@shared-canvas.vwgpbwe.mongodb.net/cineiq?
 client = MongoClient(MONGO_URI)
 db = client.cineiq
 
-# --- 2. LOAD ENGINE A: TF-IDF (Content-Based) ---
-print("Loading Engine A: TF-IDF Content Matcher...")
-try:
-    with open('models/tfidf.pkl', 'rb') as f:
-        tfidf_matrix = pickle.load(f)
-    tmdb_df = pd.read_csv('models/tmdb_ml.csv')
-    indices_df = pd.read_csv('models/indices_ml.csv')
-    
-    # Create mapping for content engine
-    content_indices = pd.Series(indices_df.index, index=indices_df['title'].str.lower()).drop_duplicates()
-    print("✅ Engine A Loaded!")
-except Exception as e:
-    print(f"❌ Failed to load TF-IDF: {e}")
+# --- GLOBAL VARIABLES FOR ENGINES ---
+# Declaring these up top ensures the endpoints can always see them
+tfidf_matrix = None
+tmdb_df = None
+content_indices = None
+movie_embeddings = None
+title_to_idx = None
+idx_to_title = None
+graph_lower_to_idx = None
 
-# --- 3. LOAD ENGINE B: LightGCN (Collaborative Graph) ---
-print("Loading Engine B: LightGCN Graph Neural Network...")
-try:
-    with open("models/lightgcn_embeddings.pkl", "rb") as f:
-        graph_data = pickle.load(f)
+@app.on_event("startup")
+async def load_ml_engines():
+    global tfidf_matrix, tmdb_df, content_indices
+    global movie_embeddings, title_to_idx, idx_to_title, graph_lower_to_idx
+
+    # --- 2. LOAD ENGINE A: TF-IDF (Content-Based) ---
+    print("Loading Engine A: TF-IDF Content Matcher...")
+    try:
+        with open('models/tfidf.pkl', 'rb') as f:
+            tfidf_vectorizer = pickle.load(f)
+            
+        tmdb_df = pd.read_csv('models/tmdb_ml.csv')
+        indices_df = pd.read_csv('models/indices_ml.csv')
         
-    movie_embeddings = torch.tensor(graph_data['movie_embeddings'])
-    title_to_idx = graph_data['title_to_idx']
-    idx_to_title = graph_data['idx_to_title']
-    
-    # Create mapping for graph engine
-    graph_lower_to_idx = {title.lower(): idx for title, idx in title_to_idx.items()}
-    print("✅ Engine B Loaded!")
-except Exception as e:
-    print(f"❌ Failed to load LightGCN: {e}")
+        # Helper function to aggressively clean syntax noise from columns
+        def clean_tags(x):
+            if isinstance(x, str):
+                # 1. Convert to lowercase
+                x = x.lower()
+                # 2. Strip brackets, quotes, commas, and special syntax characters
+                x = x.replace('[', '').replace(']', '').replace("'", "").replace('"', '').replace(',', ' ')
+                # 3. Clean up multiple whitespaces
+                return " ".join(x.split())
+            return ""
 
+        # Apply robust structural cleaning across all categorical dimensions
+        clean_genres = tmdb_df['genres'].apply(clean_tags)
+        clean_overview = tmdb_df['overview'].fillna('').str.lower()
+        
+        # Remove spaces in names so 'Christopher Nolan' becomes a single token: 'christophernolan'
+        clean_director = tmdb_df['director'].fillna('').astype(str).str.lower().str.replace(' ', '', regex=False)
+        clean_cast = tmdb_df['cast'].apply(clean_tags).str.replace(' ', '', regex=False)
+        
+        # Construct a mathematically balanced metadata text soup
+        # We duplicate the core attributes to artificially inflate their Term Frequency weights
+        metadata_soup = (
+            clean_overview + " " + 
+            clean_genres + " " + clean_genres + " " + 
+            clean_director + " " + clean_director + " " + 
+            clean_cast
+        )
+        
+        # Re-fit or transform based on vectorizer type stability
+        try:
+            tfidf_matrix = tfidf_vectorizer.transform(metadata_soup)
+        except Exception:
+            # Fallback configuration if the pickled vectorizer vocabulary clashes with local data shapes
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            tfidf_vectorizer = TfidfVectorizer(stop_words='english', min_df=1)
+            tfidf_matrix = tfidf_vectorizer.fit_transform(metadata_soup)
+        
+        content_indices = pd.Series(indices_df.index, index=indices_df['title'].str.lower()).drop_duplicates()
+        
+        print("✅ Engine A Loaded with a Cleaned, Fully Vectorized Metadata Soup!")
+    except Exception as e:
+        print(f"❌ Failed to load TF-IDF: {e}")
 
+    # --- 3. LOAD ENGINE B: LightGCN (Collaborative Graph) ---
+    print("Loading Engine B: LightGCN Graph Neural Network...")
+    try:
+        with open("models/lightgcn_embeddings.pkl", "rb") as f:
+            graph_data = pickle.load(f)
+            
+        movie_embeddings = torch.tensor(graph_data['movie_embeddings'])
+        title_to_idx = graph_data['title_to_idx']
+        idx_to_title = graph_data['idx_to_title']
+        
+        graph_lower_to_idx = {title.lower(): idx for title, idx in title_to_idx.items()}
+        print("✅ Engine B Loaded Successfully!")
+    except Exception as e:
+        print(f"❌ Failed to load LightGCN: {e}")
 # --- ENDPOINT A: CONTENT MATCH (Old Logic) ---
 @app.get("/api/recommend/content/{search_query}")
 async def get_content_recommendations(search_query: str, top_k: int = 5):

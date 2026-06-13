@@ -1,207 +1,701 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from "react";
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+// Netflix-dark base (#141414) × Letterboxd slate (#2c3440) hybrid
+// Accent: Letterboxd green (#00e054) for ratings/active; Netflix red (#e50914) for CTA
+// Type: 'Bebas Neue' display, system-ui body, monospace for data labels
+
+const API_BASE = "http://127.0.0.1:8000/api/recommend";
+
+function StarRating({ score }) {
+  const stars = Math.round((score / 100) * 5 * 2) / 2;
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => {
+        const filled = stars >= s ? 1 : stars >= s - 0.5 ? 0.5 : 0;
+        return (
+          <svg key={s} width="12" height="12" viewBox="0 0 12 12">
+            <defs>
+              <linearGradient id={`grad-${s}-${score}`}>
+                <stop offset={`${filled * 100}%`} stopColor="#00e054" />
+                <stop offset={`${filled * 100}%`} stopColor="#445566" />
+              </linearGradient>
+            </defs>
+            <polygon
+              points="6,1 7.5,4.5 11,5 8.5,7.5 9,11 6,9.5 3,11 3.5,7.5 1,5 4.5,4.5"
+              fill={`url(#grad-${s}-${score})`}
+            />
+          </svg>
+        );
+      })}
+    </div>
+  );
+}
+
+function MovieCard({ movie, index }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      className="movie-card"
+      style={{ animationDelay: `${index * 60}ms` }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Poster */}
+      <div className="poster-wrap">
+        {!imgLoaded && <div className="poster-skeleton" />}
+        <img
+          src={movie.poster}
+          alt={movie.title}
+          className="poster-img"
+          style={{ opacity: imgLoaded ? 1 : 0 }}
+          onLoad={() => setImgLoaded(true)}
+          loading="lazy"
+        />
+
+        {/* Letterboxd-style overlay on hover */}
+        <div className={`poster-overlay ${hovered ? "active" : ""}`}>
+          <div className="overlay-content">
+            <StarRating score={movie.score} />
+            <p className="overlay-reason">{movie.reason}</p>
+            <div className="match-badge">{movie.score}% match</div>
+          </div>
+        </div>
+
+        {/* Rank badge */}
+        <div className="rank-badge">#{index + 1}</div>
+      </div>
+
+      {/* Below poster */}
+      <div className="card-meta">
+        <h3 className="card-title">{movie.title}</h3>
+        <StarRating score={movie.score} />
+      </div>
+    </div>
+  );
+}
+
+function EngineToggle({ engine, setEngine }) {
+  return (
+    <div className="engine-toggle">
+      <span className="engine-label">ALGORITHM</span>
+      <div className="engine-buttons">
+        <button
+          className={`engine-btn ${engine === "content" ? "active-content" : ""}`}
+          onClick={() => setEngine("content")}
+        >
+          <span className="engine-icon">⬡</span> TF-IDF
+        </button>
+        <div className="engine-divider" />
+        <button
+          className={`engine-btn ${engine === "graph" ? "active-graph" : ""}`}
+          onClick={() => setEngine("graph")}
+        >
+          <span className="engine-icon">◈</span> LightGCN
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LoadingGrid() {
+  return (
+    <>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="skeleton-card"
+          style={{ animationDelay: `${i * 80}ms` }}
+        >
+          <div className="skeleton-poster" />
+          <div className="skeleton-line long" />
+          <div className="skeleton-line short" />
+        </div>
+      ))}
+    </>
+  );
+}
 
 export default function App() {
-  const [theme, setTheme] = useState('premium'); 
-  const [isAnimating, setIsAnimating] = useState(false);
-  
-  // App States
-  const [searchQuery, setSearchQuery] = useState("");
-  const [recommendations, setRecommendations] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [engine, setEngine] = useState("graph");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  // --- NEW: Engine Selection State ---
-  const [engine, setEngine] = useState('graph'); // 'graph' or 'content'
+  const [submitted, setSubmitted] = useState("");
+  const inputRef = useRef(null);
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
-    setIsLoading(true);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const search = async (q = query, eng = engine) => {
+    if (!q.trim()) return;
+    setLoading(true);
     setError(null);
-    
-    try {
-      // Dynamically switch the endpoint based on the selected engine
-      const endpoint = engine === 'graph' 
-        ? `https://ubiquitous-space-spoon-r4w99549qj6q25jrj-8000.app.github.dev/api/recommend/graph/${encodeURIComponent(searchQuery)}`
-        : `https://ubiquitous-space-spoon-r4w99549qj6q25jrj-8000.app.github.dev/api/recommend/content/${encodeURIComponent(searchQuery)}`;
+    setResults([]);
+    setSubmitted(q.trim());
 
-      const response = await fetch(endpoint);
-      
-      if (!response.ok) {
-        throw new Error("Movie not found in the database. Try another classic!");
-      }
-      
-      const data = await response.json();
-      setRecommendations(data.results);
-    } catch (err) {
-      setError(err.message);
-      setRecommendations([]);
+    try {
+      const url = `${API_BASE}/${eng}/${encodeURIComponent(q.trim())}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Film not found — try another title.");
+      const data = await res.json();
+      setResults(data.results || []);
+    } catch (e) {
+      setError(e.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleSearch();
+  const handleKey = (e) => {
+    if (e.key === "Enter") search();
   };
 
-  const handleThemeSwitch = (newTheme) => {
-    if (newTheme === theme) return;
-    setIsAnimating(true);
-    setTimeout(() => {
-      setTheme(newTheme);
-      setIsAnimating(false);
-    }, 150); 
-  };
-
-  const renderMovies = () => {
-    if (isLoading) return <div className="text-xl font-bold text-red-500 animate-pulse col-span-full text-center py-12">Running {engine === 'graph' ? 'Neural Network' : 'TF-IDF Content'} inference...</div>;
-    if (error) return <div className="text-xl font-bold text-red-500 col-span-full text-center py-12">{error}</div>;
-    if (recommendations.length === 0) return null;
-
-    return recommendations.map((movie) => (
-      <div key={movie.id} className="min-w-[240px] md:min-w-[280px] snap-start group cursor-pointer flex-shrink-0">
-        <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-4 shadow-xl transition-all duration-300 group-hover:scale-105 group-hover:ring-2 ring-red-600 bg-zinc-900">
-          <img src={movie.poster} alt={movie.title} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" loading="lazy" />
-          <div className="absolute top-3 right-3 bg-black/90 backdrop-blur-sm px-2.5 py-1 rounded-md text-sm font-bold text-red-500 border border-red-900/50 shadow-lg">
-            {movie.score}% Match
-          </div>
-        </div>
-        <h3 className="font-bold text-lg text-zinc-100 group-hover:text-red-400 transition-colors">{movie.title}</h3>
-        <p className="text-sm text-zinc-500 line-clamp-1">{movie.reason}</p>
-      </div>
-    ));
-  };
+  const hasResults = results.length > 0;
 
   return (
-    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-300 font-sans ${
-      theme === 'premium' ? 'bg-zinc-950 text-white' : 'bg-[#14181c] text-slate-300'
-    }`}>
-      
-      {/* THEME TOGGLE */}
-      <div className="fixed top-4 right-4 z-50">
-        <div className="bg-black/80 backdrop-blur-md p-1 rounded-full border border-white/10 flex gap-1 shadow-xl">
-          <button onClick={() => handleThemeSwitch('premium')} className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${theme === 'premium' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Premium</button>
-          <button onClick={() => handleThemeSwitch('minimalist')} className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${theme === 'minimalist' ? 'bg-[#00e054] text-black' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>Minimalist</button>
-        </div>
-      </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&display=swap');
 
-      <div className={`transition-opacity duration-300 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}>
-        
-        {/* THEME 1: PREMIUM */}
-        {theme === 'premium' && (
-          <div className="w-full">
-            <div className="relative h-[65vh] flex items-center justify-center bg-gradient-to-b from-zinc-900 to-zinc-950">
-              <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-red-600 rounded-full mix-blend-screen filter blur-[128px]"></div>
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600 rounded-full mix-blend-screen filter blur-[128px]"></div>
-              </div>
-              
-              <div className="relative z-10 w-full max-w-3xl px-6 text-center mt-12">
-                <h1 className="text-6xl md:text-7xl font-black tracking-tight mb-4">Cine<span className="text-red-600">IQ</span></h1>
-                <p className="text-xl text-zinc-400 mb-8">Advanced dual-engine movie recommendations.</p>
-                
-                <div className="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto mb-6">
-                  <input 
-                    type="text" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Enter a movie you love..."
-                    className="w-full bg-zinc-900/80 backdrop-blur border border-zinc-800 text-white px-6 py-4 rounded-xl focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-lg"
-                  />
-                  <button onClick={handleSearch} className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-xl font-bold transition-colors text-lg whitespace-nowrap shadow-lg shadow-red-900/20">
-                    Analyze
-                  </button>
-                </div>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-                {/* ENGINE TOGGLE */}
-                <div className="flex justify-center items-center gap-4 text-sm font-bold text-zinc-400">
-                  <span>Engine:</span>
-                  <div className="bg-zinc-900 rounded-lg p-1 border border-zinc-800 flex">
-                    <button 
-                      onClick={() => setEngine('content')}
-                      className={`px-4 py-2 rounded-md transition-all ${engine === 'content' ? 'bg-zinc-700 text-white' : 'hover:text-zinc-200'}`}
-                    >
-                      TF-IDF (Plots/Genres)
-                    </button>
-                    <button 
-                      onClick={() => setEngine('graph')}
-                      className={`px-4 py-2 rounded-md transition-all ${engine === 'graph' ? 'bg-zinc-700 text-white' : 'hover:text-zinc-200'}`}
-                    >
-                      LightGCN (User Behavior)
-                    </button>
-                  </div>
-                </div>
+        :root {
+          --bg:         #0f0f0f;
+          --bg-card:    #1a1a1a;
+          --bg-input:   #1e1e1e;
+          --bg-lb:      #2c3440;
+          --surface:    #242424;
+          --border:     rgba(255,255,255,0.08);
+          --red:        #e50914;
+          --red-dim:    rgba(229,9,20,0.15);
+          --green:      #00e054;
+          --green-dim:  rgba(0,224,84,0.12);
+          --text:       #e5e5e5;
+          --text-muted: #808080;
+          --text-dim:   #4a4a4a;
+          --font-display: 'Bebas Neue', sans-serif;
+          --font-body:    'Inter', system-ui, sans-serif;
+          --radius:     6px;
+          --radius-lg:  12px;
+        }
 
-              </div>
-            </div>
+        html, body, #root {
+          height: 100%;
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--font-body);
+          -webkit-font-smoothing: antialiased;
+        }
 
-            <div className="max-w-[1400px] mx-auto px-6 pb-24">
-              {recommendations.length > 0 && (
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                  <span className="w-1.5 h-6 bg-red-600 rounded-full"></span>
-                  Top {engine === 'graph' ? 'Graph' : 'Content'} Matches
-                </h2>
-              )}
-              <div className="flex gap-6 overflow-x-auto pb-8 snap-x snap-mandatory" style={{ scrollbarWidth: 'none' }}>
-                {renderMovies()}
-              </div>
-            </div>
+        /* ── Layout ── */
+        .shell {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* ── Nav ── */
+        .nav {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 32px;
+          height: 56px;
+          background: rgba(15,15,15,0.92);
+          backdrop-filter: blur(16px);
+          border-bottom: 1px solid var(--border);
+        }
+        .nav-logo {
+          font-family: var(--font-display);
+          font-size: 26px;
+          letter-spacing: 2px;
+          color: var(--text);
+          display: flex;
+          align-items: baseline;
+          gap: 2px;
+          user-select: none;
+        }
+        .nav-logo .accent { color: var(--red); }
+        .nav-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+        }
+        .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+        /* ── Hero ── */
+        .hero {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 80px 24px 60px;
+          text-align: center;
+          overflow: hidden;
+        }
+        .hero-glow {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(ellipse 60% 40% at 50% -10%, rgba(229,9,20,0.12) 0%, transparent 70%),
+            radial-gradient(ellipse 40% 30% at 80% 100%, rgba(0,224,84,0.06) 0%, transparent 60%);
+        }
+        .hero-eyebrow {
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.25em;
+          text-transform: uppercase;
+          color: var(--text-dim);
+          margin-bottom: 20px;
+        }
+        .hero-title {
+          font-family: var(--font-display);
+          font-size: clamp(72px, 12vw, 140px);
+          line-height: 0.9;
+          letter-spacing: 4px;
+          color: var(--text);
+          margin-bottom: 16px;
+        }
+        .hero-title .iq { color: var(--red); }
+        .hero-sub {
+          font-size: 14px;
+          font-weight: 400;
+          color: var(--text-muted);
+          max-width: 380px;
+          line-height: 1.6;
+          margin-bottom: 48px;
+        }
+
+        /* ── Search ── */
+        .search-wrap {
+          width: 100%;
+          max-width: 580px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .search-row {
+          display: flex;
+          gap: 8px;
+          background: var(--bg-input);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-lg);
+          padding: 6px 6px 6px 20px;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-row:focus-within {
+          border-color: rgba(255,255,255,0.2);
+          box-shadow: 0 0 0 3px rgba(229,9,20,0.1);
+        }
+        .search-input {
+          flex: 1;
+          background: none;
+          border: none;
+          outline: none;
+          color: var(--text);
+          font-family: var(--font-body);
+          font-size: 15px;
+          font-weight: 400;
+          caret-color: var(--red);
+        }
+        .search-input::placeholder { color: var(--text-dim); }
+        .search-btn {
+          background: var(--red);
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          padding: 10px 24px;
+          font-family: var(--font-body);
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          cursor: pointer;
+          transition: background 0.15s, transform 0.1s;
+          white-space: nowrap;
+        }
+        .search-btn:hover { background: #c8070f; }
+        .search-btn:active { transform: scale(0.97); }
+        .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Engine toggle ── */
+        .engine-toggle {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .engine-label {
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.2em;
+          color: var(--text-dim);
+        }
+        .engine-buttons {
+          display: flex;
+          align-items: center;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          overflow: hidden;
+        }
+        .engine-btn {
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          font-family: var(--font-body);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          padding: 7px 14px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          transition: color 0.15s, background 0.15s;
+        }
+        .engine-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+        .engine-btn.active-content { color: #fff; background: rgba(229,9,20,0.25); }
+        .engine-btn.active-graph   { color: var(--green); background: var(--green-dim); }
+        .engine-icon { font-size: 13px; }
+        .engine-divider { width: 1px; height: 18px; background: var(--border); }
+
+        /* ── Results section ── */
+        .results-section {
+          padding: 0 32px 80px;
+          max-width: 1440px;
+          margin: 0 auto;
+          width: 100%;
+        }
+        .results-header {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          margin-bottom: 24px;
+          padding-bottom: 14px;
+          border-bottom: 1px solid var(--border);
+        }
+        .results-title {
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+        }
+        .results-title strong { color: var(--text); }
+        .results-algo {
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          padding: 3px 10px;
+          border-radius: 20px;
+        }
+        .algo-content { color: var(--red); background: var(--red-dim); border: 1px solid rgba(229,9,20,0.2); }
+        .algo-graph   { color: var(--green); background: var(--green-dim); border: 1px solid rgba(0,224,84,0.2); }
+
+        /* ── Grid ── */
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 20px;
+        }
+        @media (min-width: 640px)  { .grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }
+        @media (min-width: 1024px) { .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
+
+        /* ── Movie card ── */
+        .movie-card {
+          animation: fadeUp 0.4s ease both;
+          cursor: pointer;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .poster-wrap {
+          position: relative;
+          aspect-ratio: 2/3;
+          border-radius: var(--radius);
+          overflow: hidden;
+          background: var(--bg-card);
+          margin-bottom: 10px;
+          /* Letterboxd signature: thin colored border on hover */
+          outline: 2px solid transparent;
+          outline-offset: 2px;
+          transition: outline-color 0.2s;
+        }
+        .movie-card:hover .poster-wrap { outline-color: var(--green); }
+        .poster-skeleton {
+          position: absolute; inset: 0;
+          background: linear-gradient(110deg, #1a1a1a 30%, #232323 50%, #1a1a1a 70%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+        .poster-img {
+          position: absolute; inset: 0;
+          width: 100%; height: 100%;
+          object-fit: cover;
+          transition: transform 0.35s ease, opacity 0.3s;
+        }
+        .movie-card:hover .poster-img { transform: scale(1.04); }
+
+        /* Overlay */
+        .poster-overlay {
+          position: absolute; inset: 0;
+          background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+          display: flex;
+          align-items: flex-end;
+          padding: 14px;
+          opacity: 0;
+          transition: opacity 0.25s;
+        }
+        .poster-overlay.active { opacity: 1; }
+        .overlay-content {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          width: 100%;
+        }
+        .overlay-reason {
+          font-size: 11px;
+          color: rgba(255,255,255,0.7);
+          line-height: 1.4;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .match-badge {
+          display: inline-flex;
+          align-self: flex-start;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          color: var(--green);
+          background: var(--green-dim);
+          border: 1px solid rgba(0,224,84,0.3);
+          border-radius: 4px;
+          padding: 2px 7px;
+        }
+
+        /* Rank */
+        .rank-badge {
+          position: absolute;
+          top: 8px; left: 8px;
+          font-family: var(--font-display);
+          font-size: 14px;
+          letter-spacing: 1px;
+          color: rgba(255,255,255,0.5);
+          background: rgba(0,0,0,0.7);
+          backdrop-filter: blur(4px);
+          border-radius: 4px;
+          padding: 2px 6px;
+          line-height: 1.2;
+        }
+
+        .card-meta { padding: 0 2px; }
+        .card-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text);
+          line-height: 1.3;
+          margin-bottom: 5px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          transition: color 0.15s;
+        }
+        .movie-card:hover .card-title { color: var(--green); }
+
+        /* ── Skeleton grid ── */
+        .skeleton-card { animation: fadeUp 0.3s ease both; }
+        .skeleton-poster {
+          aspect-ratio: 2/3;
+          border-radius: var(--radius);
+          background: var(--bg-card);
+          background: linear-gradient(110deg, #1a1a1a 30%, #222 50%, #1a1a1a 70%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+          margin-bottom: 10px;
+        }
+        .skeleton-line {
+          height: 10px;
+          border-radius: 4px;
+          background: #232323;
+          margin-bottom: 6px;
+        }
+        .skeleton-line.long  { width: 85%; }
+        .skeleton-line.short { width: 50%; }
+
+        /* ── Error / empty ── */
+        .state-center {
+          grid-column: 1 / -1;
+          text-align: center;
+          padding: 60px 24px;
+        }
+        .state-icon {
+          font-size: 40px;
+          margin-bottom: 16px;
+          opacity: 0.4;
+        }
+        .state-msg {
+          font-size: 14px;
+          color: var(--text-muted);
+          max-width: 340px;
+          margin: 0 auto;
+          line-height: 1.6;
+        }
+        .state-msg.error { color: #e5737a; }
+
+        /* ── Footer ── */
+        .footer {
+          margin-top: auto;
+          border-top: 1px solid var(--border);
+          padding: 20px 32px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 11px;
+          color: var(--text-dim);
+        }
+        .footer-tag {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .footer-tag .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--red); }
+
+        /* ── Divider strip ── */
+        .film-strip {
+          width: 100%;
+          height: 4px;
+          background: repeating-linear-gradient(
+            90deg,
+            var(--red) 0px, var(--red) 20px,
+            transparent 20px, transparent 28px
+          );
+          opacity: 0.25;
+          margin-bottom: 48px;
+        }
+      `}</style>
+
+      <div className="shell">
+        {/* Nav */}
+        <nav className="nav">
+          <div className="nav-logo">
+            CINE<span className="accent">IQ</span>
           </div>
+          <div className="nav-right">
+            <div className="nav-dot" />
+            Dual-Engine Rec System
+          </div>
+        </nav>
+
+        {/* Hero */}
+        <section className="hero">
+          <div className="hero-glow" />
+          <p className="hero-eyebrow">
+            AI-Powered · Graph Neural Networks · TF-IDF
+          </p>
+          <h1 className="hero-title">
+            CINE<span className="iq">IQ</span>
+          </h1>
+          <p className="hero-sub">
+            Type a film you love. Get six curated recommendations from our
+            neural network or content engine.
+          </p>
+
+          <div className="search-wrap">
+            <div className="search-row">
+              <input
+                ref={inputRef}
+                className="search-input"
+                type="text"
+                placeholder="e.g. Inception, Parasite, The Godfather…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKey}
+              />
+              <button
+                className="search-btn"
+                onClick={() => search()}
+                disabled={loading || !query.trim()}
+              >
+                {loading ? "Finding…" : "Find Films"}
+              </button>
+            </div>
+            <EngineToggle engine={engine} setEngine={setEngine} />
+          </div>
+        </section>
+
+        {/* Film-strip accent */}
+        <div className="film-strip" />
+
+        {/* Results */}
+        {(loading || hasResults || error) && (
+          <section className="results-section">
+            <div className="results-header">
+              <p className="results-title">
+                {loading ? (
+                  "Searching…"
+                ) : error ? (
+                  "No results"
+                ) : (
+                  <>
+                    Because you liked <strong>"{submitted}"</strong>
+                  </>
+                )}
+              </p>
+              <span
+                className={`results-algo ${engine === "content" ? "algo-content" : "algo-graph"}`}
+              >
+                {engine === "content" ? "TF-IDF Content" : "LightGCN Graph"}
+              </span>
+            </div>
+
+            <div className="grid">
+              {loading && <LoadingGrid />}
+
+              {error && !loading && (
+                <div className="state-center">
+                  <div className="state-icon">🎬</div>
+                  <p className="state-msg error">{error}</p>
+                </div>
+              )}
+
+              {!loading &&
+                !error &&
+                hasResults &&
+                results.map((movie, i) => (
+                  <MovieCard key={movie.id ?? i} movie={movie} index={i} />
+                ))}
+            </div>
+          </section>
         )}
 
-        {/* THEME 3: MINIMALIST (Simplified for brevity, uses same engine logic) */}
-        {theme === 'minimalist' && (
-          <div className="w-full max-w-6xl mx-auto px-6 pt-20 pb-24">
-            <div className="flex flex-col items-center border-b border-slate-800 pb-12 mb-12">
-              <h1 className="text-5xl font-serif font-bold text-white mb-10 tracking-wide">CineIQ<span className="text-[#00e054]">.</span></h1>
-              
-              <div className="w-full max-w-2xl relative mb-6">
-                <input 
-                  type="text" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Name a film..."
-                  className="w-full bg-[#2c3440] text-white px-6 py-4 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00e054] transition-all font-serif text-lg placeholder-slate-500 shadow-inner"
-                />
-                <button onClick={handleSearch} className="absolute right-2 top-2 bottom-2 bg-[#445566] hover:bg-[#00e054] hover:text-black text-white px-8 rounded transition-colors font-bold text-sm tracking-wider uppercase">
-                  Search
-                </button>
-              </div>
-
-              {/* MINIMALIST ENGINE TOGGLE */}
-              <div className="flex justify-center items-center gap-4 text-xs tracking-widest uppercase font-bold text-slate-500">
-                <button 
-                  onClick={() => setEngine('content')}
-                  className={`transition-all ${engine === 'content' ? 'text-[#00e054] border-b border-[#00e054]' : 'hover:text-slate-300'}`}
-                >
-                  Content Analysis
-                </button>
-                <span>|</span>
-                <button 
-                  onClick={() => setEngine('graph')}
-                  className={`transition-all ${engine === 'graph' ? 'text-[#00e054] border-b border-[#00e054]' : 'hover:text-slate-300'}`}
-                >
-                  Behavioral Graph
-                </button>
-              </div>
-            </div>
-
-            <div className="w-full">
-              {recommendations.length > 0 && (
-                <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-8 border-b border-slate-800 pb-3 inline-block">
-                  {engine === 'graph' ? 'Graph Network' : 'Text Vector'} Predictions
-                </h2>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
-                 {renderMovies()}
-              </div>
-            </div>
+        {/* Footer */}
+        <footer className="footer">
+          <div className="footer-tag">
+            <div className="dot" />
+            CineIQ — Dual-Engine Movie Recommender
           </div>
-        )}
+          <span>LightGCN · TF-IDF · TMDB</span>
+        </footer>
       </div>
-    </div>
+    </>
   );
 }

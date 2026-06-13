@@ -1,3 +1,26 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ── Tailwind base (v4 postcss plugin syntax) ── */
+@import "tailwindcss";
+
+/* ── Global resets / base styles ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar globally (Netflix / Letterboxd both do this) */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(229, 9, 20, 0.35);
+  color: #fff;
+}

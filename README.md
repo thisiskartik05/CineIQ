@@ -1,262 +1,331 @@
-# 🎬 CineIQ
+# 🎬 CineIQ: Dual-Engine Movie Recommendation System
 
-## A Hybrid Explainable Movie Recommendation and Review Analysis System
+CineIQ is a full-stack movie recommendation platform that combines **Content-Based Filtering** and **Graph-Based Collaborative Filtering** within a unified web application.
 
-CineIQ is a hybrid recommendation engine that combines:
+Users can seamlessly switch between two independent recommendation engines:
 
-- Content-Based Filtering
-- Collaborative Filtering
-- Contextual Sentiment Analysis
-- Explainable Recommendations
-- Adaptive User Weighting
+- **Content Engine** → Semantic similarity using TF-IDF and Cosine Similarity
+- **Graph Engine** → Behavioral recommendations using LightGCN
 
-into a unified cinematic intelligence system.
-
-Unlike traditional movie recommenders that rely solely on similarity or ratings, CineIQ attempts to understand:
-- semantic structure of films,
-- behavioral viewing patterns,
-- emotional tone,
-- and user-specific recommendation dynamics.
+The project demonstrates the integration of Machine Learning, Graph Neural Networks, FastAPI, React, and MongoDB into a production-style recommendation system.
 
 ---
 
-# 🚀 Features
+## 🚀 Features
 
-## 🎞 Hybrid Recommendation Engine
-
-CineIQ combines:
-- TF-IDF semantic similarity
-- SVD-based collaborative filtering
-- sentiment-aware ranking
-
-to generate recommendations.
-
----
-
-## 🧠 Explainable Recommendations
-
-Recommendations are not black boxes.
-
-Each recommendation includes interpretable reasoning such as:
-
-> “Strong thematic similarity · predicted 4.5★ · dark emotional tone”
+- Dual recommendation engines
+- Interactive React dashboard
+- FastAPI backend
+- TF-IDF based semantic recommendations
+- LightGCN collaborative filtering
+- MongoDB Atlas integration
+- REST API architecture
+- Modular and scalable design
 
 ---
 
-## ✍️ Hybrid Sentiment Analysis
+## 🏗️ System Architecture
 
-CineIQ uses:
-- **VADER** for lightweight/simple reviews
-- **DistilBERT Transformers** for nuanced literary reviews
+```mermaid
+graph TD
 
-This allows the system to better interpret emotionally layered film criticism.
+subgraph Frontend
+A[React UI]
+B[Engine Selector]
+A --> B
+end
 
----
+subgraph Backend
+C[FastAPI Router]
+end
 
-## 👤 Adaptive User Weighting
+subgraph ContentEngine
+D[TF-IDF Vectorizer]
+E[Cosine Similarity]
+end
 
-The recommendation ensemble dynamically adjusts based on:
-- user activity,
-- recommendation confidence,
-- cold-start conditions.
+subgraph GraphEngine
+F[LightGCN]
+G[User-Item Embeddings]
+end
 
----
+subgraph Storage
+H[Movie Dataset]
+I[MongoDB Atlas]
+end
 
-## 🌐 Deployed Application
+B --> C
 
-Hosted using:
-- **HuggingFace Spaces**
-- **Streamlit**
-- **GitHub**
+C --> D
+D --> E
+E --> H
 
----
+C --> F
+F --> G
+G --> I
 
-# 🧮 Mathematical Foundations
-
-## TF-IDF Vectorization
-
-Movies are transformed into vector-space representations using:
-
-\[
-TFIDF(t,d,D)=TF(t,d)\times IDF(t,D)
-\]
-
----
-
-## Cosine Similarity
-
-Semantic similarity is computed through:
-
-\[
-\cos(\theta)=
-\frac{A\cdot B}{||A||||B||}
-\]
+E --> A
+G --> A
+```
 
 ---
 
-## Matrix Factorization
+## 🧠 Recommendation Engines
 
-Collaborative filtering uses Singular Value Decomposition:
+### 1. Content-Based Recommendation Engine
 
-\[
-R \approx U\Sigma V^T
-\]
+The content engine analyzes movie metadata such as:
 
-where:
-- \(U\) = user latent vectors
-- \(V\) = movie latent vectors
+- Plot overview
+- Genres
+- Keywords
+- Cast information
 
----
+These features are transformed into numerical vectors using **TF-IDF Vectorization**.
 
-## Adaptive Ensemble Ranking
+#### TF-IDF
 
-Final recommendations are computed as:
+[
+TF(t,d)=\frac{f_{t,d}}{\sum_{t' \in d}f_{t',d}}
+]
 
-\[
-\text{Final Score}
-=
-w_cC + w_sS + w_tT
-\]
+[
+IDF(t,D)=\log\left(\frac{|D|}{1+|{d\in D:t\in d}|}\right)
+]
 
-where:
-- \(C\) = collaborative score
-- \(S\) = semantic similarity
-- \(T\) = sentiment score
+#### Movie Representation
 
----
+[
+V_d=[TF(t_1,d)\cdot IDF(t_1,D),...,TF(t_n,d)\cdot IDF(t_n,D)]
+]
 
-# 🛠 Tech Stack
+#### Similarity Metric
 
-| Technology | Purpose |
-|---|---|
-| Pandas | Data manipulation |
-| NumPy | Numerical computation |
-| SciPy | Sparse matrix factorization |
-| Scikit-learn | TF-IDF and similarity |
-| Transformers | Contextual NLP |
-| VADER | Lightweight sentiment analysis |
-| Streamlit | Frontend UI |
-| HuggingFace Spaces | Deployment |
-| GitHub | Version control |
+Recommendations are generated using Cosine Similarity:
+
+[
+Similarity(A,B)=\frac{A\cdot B}{||A||,||B||}
+]
 
 ---
 
-# 📂 Dataset Sources
+### 2. Graph-Based Recommendation Engine
 
-## TMDB 5000 Dataset
-Used for:
-- movie metadata
-- genres
-- keywords
-- cast
-- crew
-- overviews
+The collaborative filtering engine is built using **LightGCN (Light Graph Convolution Network)**.
 
-## MovieLens 20M Dataset
-Used for:
-- user ratings
-- collaborative filtering
-- interaction matrices
+Instead of analyzing movie content, LightGCN learns patterns from user-item interactions represented as a bipartite graph.
 
----
+#### Graph Propagation
 
-# ⚠️ Engineering Challenges Faced
+[
+e_u^{(k+1)}
+===========
 
-## 1. NumPy 2.x Compatibility Issues
+\sum\_{i\in N_u}
+\frac{1}
+{\sqrt{|N_u||N_i|}}
+e_i^{(k)}
+]
 
-Initial collaborative filtering implementation using `scikit-surprise` failed due to binary incompatibility with NumPy 2.x.
+[
+e_i^{(k+1)}
+===========
 
-### Solution
-Migrated to:
-- `scipy.sparse`
-- `scipy.sparse.linalg.svds`
+\sum\_{u\in N_i}
+\frac{1}
+{\sqrt{|N_i||N_u|}}
+e_u^{(k)}
+]
 
----
+#### Layer Aggregation
 
-## 2. Sentiment Misclassification
+[
+e_u=\sum_{k=0}^{K}\alpha_k e_u^{(k)}
+]
 
-VADER failed on nuanced literary reviews.
+[
+e_i=\sum_{k=0}^{K}\alpha_k e_i^{(k)}
+]
 
-### Example
-Emotionally reflective reviews involving:
-- grief
-- silence
-- tragedy
-- introspection
+#### Prediction
 
-were incorrectly classified as negative.
+[
+\hat y_{ui}=e_u^Te_i
+]
 
-### Solution
-Integrated transformer-based contextual sentiment analysis.
+Movies with higher affinity scores are ranked higher in recommendations.
 
 ---
 
-## 3. Deployment Constraints
+## 🛠️ Tech Stack
 
-Large precomputed matrices exceeded GitHub upload limits.
+### Frontend
 
-### Solution
-- simplified deployment architecture
-- dynamic recomputation
-- HuggingFace Spaces hosting
+- React
+- Vite
+- Tailwind CSS
 
----
+### Backend
 
-# 🌍 Why HuggingFace Instead of GitHub Pages?
+- FastAPI
+- Uvicorn
 
-GitHub Pages only supports static websites.
+### Machine Learning
 
-CineIQ requires:
-- Python execution
-- Streamlit runtime
-- transformer inference
-- model loading
-- NumPy computation
+- Scikit-Learn
+- PyTorch
+- LightGCN
 
-HuggingFace Spaces provides:
-- native ML hosting
-- Streamlit compatibility
-- free cloud deployment
+### Database
 
----
+- MongoDB Atlas
 
-# 📸 Future Improvements
+### Deployment & Development
 
-Planned upgrades include:
-- transformer embeddings for recommendation
-- ANN search
-- real-time collaborative updates
-- emotion classification
-- cinematic theme extraction
-- reinforcement recommendation systems
+- GitHub Codespaces
+- GitHub
+- Virtual Environments
 
 ---
 
-# 💡 Philosophy Behind CineIQ
+## 📂 Project Structure
 
-CineIQ was designed not merely as a recommendation engine, but as an attempt to computationally model:
-
-- cinematic taste,
-- emotional interpretation,
-- semantic storytelling,
-- and audience behavior.
-
-The project evolved through multiple architectural redesigns, failures, fallbacks and optimizations — eventually becoming a hybrid cinematic intelligence framework.
+```text
+CineIQ/
+│
+├── backend/
+│   ├── main.py
+│   ├── models/
+│   ├── datasets/
+│   └── recommender/
+│
+├── frontend/
+│   ├── src/
+│   ├── components/
+│   └── pages/
+│
+├── README.md
+└── requirements.txt
+```
 
 ---
 
-# 👨‍💻 Author
+## ⚙️ Installation
 
-**Kartik Khare**  
-Engineering Physics  
-Indian Institute of Technology Guwahati
+### Clone Repository
+
+```bash
+git clone https://github.com/yourusername/CineIQ.git
+cd CineIQ
+```
 
 ---
 
-# ❤️
+### Backend Setup
 
-Built with equal parts:
-- linear algebra,
-- cinema,
-- debugging,
-- and emotional damage.
+```bash
+cd backend
+
+python3 -m venv venv
+
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install fastapi uvicorn torch pandas scikit-learn pymongo
+```
+
+Run server:
+
+```bash
+python -m uvicorn main:app --reload
+```
+
+Backend will be available at:
+
+```text
+http://localhost:8000
+```
+
+---
+
+### Frontend Setup
+
+Open a second terminal:
+
+```bash
+cd frontend
+
+npm install
+npm run dev
+```
+
+Frontend will be available at:
+
+```text
+http://localhost:5173
+```
+
+---
+
+## 🔍 API Endpoints
+
+### Content-Based Recommendations
+
+```http
+GET /api/recommend/content/{movie_name}
+```
+
+Example:
+
+```http
+GET /api/recommend/content/Inception
+```
+
+---
+
+### Graph-Based Recommendations
+
+```http
+GET /api/recommend/graph/{movie_name}
+```
+
+Example:
+
+```http
+GET /api/recommend/graph/Inception
+```
+
+---
+
+## 📈 Future Improvements
+
+- Hybrid recommendation engine
+- User authentication
+- Real-time recommendation updates
+- Transformer-based movie embeddings
+- Explainable AI recommendations
+- Docker containerization
+- Cloud deployment
+
+---
+
+## 👨‍💻 Author
+
+**Kartik Khare**
+Engineering Physics, IIT Guwahati
+
+Interests:
+
+- Machine Learning
+- Graph Neural Networks
+- Computational Physics
+- Full Stack Development
+
+---
+
+## 📜 License
+
+This project is released under the MIT License.
