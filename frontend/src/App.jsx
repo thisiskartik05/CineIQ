@@ -5,7 +5,8 @@ import { useState, useEffect, useRef } from "react";
 // Accent: Letterboxd green (#00e054) for ratings/active; Netflix red (#e50914) for CTA
 // Type: 'Bebas Neue' display, system-ui body, monospace for data labels
 
-const API_BASE = "http://127.0.0.1:8000/api/recommend";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+
 
 function StarRating({ score }) {
   const stars = Math.round((score / 100) * 5 * 2) / 2;
