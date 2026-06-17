@@ -147,6 +147,8 @@ html,body,#root{height:100%;background:#0f0f0f;color:#e5e5e5;font-family:'Inter'
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   transition:color .15s}
 .card:hover .card-title{color:var(--green)}
+.card-reason{font-size:10px;color:var(--text-muted);line-height:1.3;margin-top:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── Stars ───────────────────────────────────────────────────── */
 .stars{display:flex;align-items:center;gap:2px}
@@ -252,6 +254,7 @@ function MovieCard({ movie, index }) {
       </div>
       <div className="card-title">{movie.title}</div>
       <Stars score={movie.score} />
+      <p className="card-reason">{movie.reason}</p>
     </div>
   );
 }
