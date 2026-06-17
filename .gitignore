@@ -1,4 +1,23 @@
-.venv/venv/
-models/
-.env
+# Python
+.venv/
+venv/
 __pycache__/
+*.pyc
+
+# Environment variables
+.env
+.env.*
+
+# ML artifacts
+models/
+
+# Frontend
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

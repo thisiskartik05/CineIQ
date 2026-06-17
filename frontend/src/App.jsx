@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-
+import React, { useState, useEffect, useRef, useCallback } from "react";
 // ─── Config ───────────────────────────────────────────────────────────────────
 // Automatically use localhost during 'npm run dev', but use Render when deployed live
 const API_BASE = import.meta.env.DEV
@@ -10,22 +9,114 @@ const API_BASE = import.meta.env.DEV
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body,#root{height:100%;background:#0f0f0f;color:#e5e5e5;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:#0f0f0f}::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:4px}
-::selection{background:rgba(229,9,20,.3);color:#fff}
-:root{
-  --bg:#0f0f0f;--bg-card:#1a1a1a;--bg-input:#1e1e1e;--surface:#242424;
-  --border:rgba(255,255,255,.08);--border-hover:rgba(255,255,255,.16);
-  --red:#e50914;--red-dim:rgba(229,9,20,.14);--red-border:rgba(229,9,20,.25);
-  --green:#00e054;--green-dim:rgba(0,224,84,.12);--green-border:rgba(0,224,84,.25);
-  --purple:#a855f7;--purple-dim:rgba(168,85,247,.12);--purple-border:rgba(168,85,247,.25);
-  --text:#e5e5e5;--text-muted:#808080;--text-dim:#3a3a3a;
-  --font-d:'Bebas Neue',sans-serif;--r:6px;--rl:12px
+html,body,#root{
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  transition:background .2s,color .2s;
+}
+::-webkit-scrollbar{
+  width:4px;
+  height:4px
+}
+::-webkit-scrollbar-track{
+  background:var(--scrollbar-track)
+}
+::-webkit-scrollbar-thumb{
+  background:var(--scrollbar-thumb);
+  border-radius:4px
+}
+:root,
+[data-theme="dark"]{
+  --bg:#0f0f0f;
+  --bg-card:#1a1a1a;
+  --bg-input:#1e1e1e;
+  --surface:#242424;
+  --nav-bg:rgba(15,15,15,.92);
+  --eng-active-text:#fff;
+  --red-hover:#c8070f;
+
+
+
+  --border:rgba(255,255,255,.08);
+  --border-hover:rgba(255,255,255,.16);
+
+  --red:#e50914;
+  --red-dim:rgba(229,9,20,.14);
+  --red-border:rgba(229,9,20,.25);
+
+  --green:#00e054;
+  --green-dim:rgba(0,224,84,.12);
+  --green-border:rgba(0,224,84,.25);
+
+  --purple:#a855f7;
+  --purple-dim:rgba(168,85,247,.12);
+  --purple-border:rgba(168,85,247,.25);
+
+  --text:#e5e5e5;
+  --text-muted:#808080;
+  --text-dim:#3a3a3a;
+
+  --scrollbar-track:#0f0f0f;
+  --scrollbar-thumb:#2a2a2a;
+
+  --ac-bg:#1c1c1c;
+
+  --shimmer-1:#1a1a1a;
+  --shimmer-2:#222;
+  --skel-line:#1f1f1f;
+
+  --err:#e5737a;
+
+  --font-d:'Bebas Neue',sans-serif;
+  --r:6px;
+  --rl:12px;
+}
+
+[data-theme="light"]{
+  --bg:#fafafa;
+  --bg-card:#ffffff;
+  --bg-input:#f0f0f0;
+  --surface:#eeeeee;
+  --nav-bg:rgba(250,250,250,.85);
+  --border:rgba(0,0,0,.10);
+  --border-hover:rgba(0,0,0,.20);
+  --eng-active-text:#7a0309;
+  --red:#e50914;
+  --red-dim:rgba(229,9,20,.10);
+  --red-border:rgba(229,9,20,.30);
+  --red-hover:#c8070f;
+
+
+  --green:#0a8f3c;
+  --green-dim:rgba(10,143,60,.10);
+  --green-border:rgba(10,143,60,.30);
+
+  --purple:#9333ea;
+  --purple-dim:rgba(147,51,234,.10);
+  --purple-border:rgba(147,51,234,.30);
+
+  --text:#1a1a1a;
+  --text-muted:#5a5a5a;
+  --text-dim:#999999;
+
+  --scrollbar-track:#fafafa;
+  --scrollbar-thumb:#cccccc;
+
+  --ac-bg:#ffffff;
+
+  --shimmer-1:#ececec;
+  --shimmer-2:#e0e0e0;
+  --skel-line:#e5e5e5;
+
+  --err:#c0293a;
 }
 
 /* ── Nav ─────────────────────────────────────────────────────── */
 .nav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;
-  padding:0 32px;height:56px;background:rgba(15,15,15,.92);backdrop-filter:blur(20px);
+  padding:0 32px;height:56px;background:var(--nav-bg);backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border)}
 .nav-logo{font-family:var(--font-d);font-size:26px;letter-spacing:2px;user-select:none}
 .nav-logo .r{color:var(--red)}
@@ -33,13 +124,56 @@ html,body,#root{height:100%;background:#0f0f0f;color:#e5e5e5;font-family:'Inter'
   color:var(--text-muted);display:flex;align-items:center;gap:6px}
 .nav-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
 
+
+
+
+.theme-toggle{
+  display:flex;
+  align-items:center;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  overflow:hidden;
+  margin-left:12px;
+}
+
+.theme-btn{
+  background:none;
+  border:none;
+  color:var(--text-muted);
+  font-size:13px;
+  padding:5px 9px;
+  cursor:pointer;
+  line-height:1;
+  transition:color .15s,background .15s;
+}
+
+.theme-btn:hover{
+  color:var(--text);
+  background:rgba(128,128,128,.1);
+}
+
+.theme-btn.on{
+  color:var(--red);
+  background:var(--red-dim);
+}
+
+@media(max-width:480px){
+  .nav{
+    padding:0 16px;
+  }
+
+  .nav-pill{
+    display:none;
+  }
+}
 /* ── Hero ────────────────────────────────────────────────────── */
 .hero{position:relative;display:flex;flex-direction:column;align-items:center;
   padding:72px 24px 56px;text-align:center;overflow:hidden}
 .hero-glow{position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(229,9,20,.11) 0%,transparent 70%),
              radial-gradient(ellipse 35% 25% at 80% 100%,rgba(0,224,84,.07) 0%,transparent 65%)}
-.eyebrow{font-size:10px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:#333;margin-bottom:18px}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;  color:var(--text-dim);margin-bottom:18px}
 .hero-h1{font-family:var(--font-d);font-size:clamp(68px,11vw,132px);line-height:.9;letter-spacing:4px;margin-bottom:14px}
 .hero-h1 .iq{color:var(--red)}
 .hero-sub{font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.65;margin-bottom:44px}
@@ -48,20 +182,22 @@ html,body,#root{height:100%;background:#0f0f0f;color:#e5e5e5;font-family:'Inter'
 .search-wrap{width:100%;max-width:600px;display:flex;flex-direction:column;gap:10px;position:relative;z-index:110}
 .search-row{display:flex;gap:8px;background:var(--bg-input);border:1px solid var(--border);
   border-radius:var(--rl);padding:6px 6px 6px 18px;transition:border-color .2s,box-shadow .2s}
-.search-row:focus-within{border-color:rgba(255,255,255,.18);box-shadow:0 0 0 3px rgba(229,9,20,.1)}
-.search-input{flex:1;background:none;border:none;outline:none;color:var(--text);
+.search-row:focus-within{
+  border-color:var(--border-hover);
+  box-shadow:0 0 0 3px var(--red-dim);
+}.search-input{flex:1;background:none;border:none;outline:none;color:var(--text);
   font-family:'Inter',system-ui;font-size:15px;caret-color:var(--red)}
-.search-input::placeholder{color:#333}
+.search-input::placeholder{color:var(--text-dim)}
 .search-btn{background:var(--red);color:#fff;border:none;border-radius:8px;padding:10px 22px;
   font-size:13px;font-weight:700;letter-spacing:.04em;cursor:pointer;
   transition:background .15s,transform .1s;white-space:nowrap}
-.search-btn:hover{background:#c8070f}
+.search-btn:hover{background:var(--red-hover)}
 .search-btn:active{transform:scale(.97)}
 .search-btn:disabled{opacity:.45;cursor:not-allowed}
 
 /* ── Autocomplete dropdown ───────────────────────────────────── */
 .ac-list{position:absolute;top:calc(100% + 4px);left:0;right:0;
-  background:#1c1c1c;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--ac-bg);border:1px solid var(--border);border-radius:var(--r);
   max-height:220px;overflow-y:auto;z-index:300;box-shadow:0 12px 40px rgba(0,0,0,.6)}
 .ac-item{padding:10px 16px;font-size:13px;color:var(--text-muted);cursor:pointer;
   border-bottom:1px solid var(--border);transition:background .1s,color .1s}
@@ -71,14 +207,20 @@ html,body,#root{height:100%;background:#0f0f0f;color:#e5e5e5;font-family:'Inter'
 
 /* ── Engine toggle ───────────────────────────────────────────── */
 .engine-row{display:flex;align-items:center;gap:10px}
-.engine-label{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#333}
+.engine-label{
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--text-dim)
+}
 .engine-btns{display:flex;align-items:center;background:var(--surface);
   border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
 .eng{background:none;border:none;color:var(--text-muted);font-size:11px;font-weight:700;
   letter-spacing:.08em;padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:5px;
   transition:color .15s,background .15s}
 .eng:hover{color:var(--text);background:rgba(255,255,255,.04)}
-.eng.ac{color:#fff;background:rgba(229,9,20,.22)}
+.eng.ac{color:var(--eng-active-text);background:rgba(229,9,20,.22)}
 .eng.ag{color:var(--green);background:var(--green-dim)}
 .eng.ah{color:var(--purple);background:var(--purple-dim)}
 .eng-div{width:1px;height:18px;background:var(--border)}
@@ -123,9 +265,18 @@ html,body,#root{height:100%;background:#0f0f0f;color:#e5e5e5;font-family:'Inter'
   background:var(--bg-card);margin-bottom:9px;
   outline:2px solid transparent;outline-offset:2px;transition:outline-color .2s}
 .card:hover .poster{outline-color:var(--green)}
-.skel-bg{position:absolute;inset:0;
-  background:linear-gradient(110deg,#1a1a1a 30%,#222 50%,#1a1a1a 70%);
-  background-size:200% 100%;animation:shimmer 1.4s infinite}
+.skel-bg{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(
+    110deg,
+    var(--shimmer-1) 30%,
+    var(--shimmer-2) 50%,
+    var(--shimmer-1) 70%
+  );
+  background-size:200% 100%;
+  animation:shimmer 1.4s infinite;
+}
 @keyframes shimmer{to{background-position:-200% 0}}
 .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   transition:transform .3s,opacity .3s}
@@ -165,9 +316,10 @@ html,body,#root{height:100%;background:#0f0f0f;color:#e5e5e5;font-family:'Inter'
 .cmp-card{display:flex;gap:10px;padding:10px;border-radius:var(--r);
   background:var(--bg-card);border:1px solid var(--border);margin-bottom:8px;
   animation:fadeUp .35s ease both;transition:border-color .15s}
-.cmp-card:hover{border-color:rgba(255,255,255,.15)}
-.cmp-poster{width:44px;height:66px;border-radius:4px;object-fit:cover;flex-shrink:0;
-  background:var(--surface)}
+.cmp-card:hover{
+  border-color:var(--border-hover)
+}
+.cmp-poster{width:44px;height:66px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--surface)}
 .cmp-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;justify-content:center}
 .cmp-title{font-size:12px;font-weight:600;line-height:1.3;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -184,20 +336,32 @@ html,body,#root{height:100%;background:#0f0f0f;color:#e5e5e5;font-family:'Inter'
 
 /* ── Skeleton / states ───────────────────────────────────────── */
 .skel-card{animation:fadeUp .3s ease both}
-.skel-poster{aspect-ratio:2/3;border-radius:var(--r);
-  background:linear-gradient(110deg,#1a1a1a 30%,#222 50%,#1a1a1a 70%);
-  background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:9px}
-.skel-line{height:10px;border-radius:4px;background:#1f1f1f;margin-bottom:5px}
+.skel-poster{
+  aspect-ratio:2/3;
+  border-radius:var(--r);
+  background:linear-gradient(
+    110deg,
+    var(--shimmer-1) 30%,
+    var(--shimmer-2) 50%,
+    var(--shimmer-1) 70%
+  );
+  background-size:200% 100%;
+  animation:shimmer 1.4s infinite;
+  margin-bottom:9px;
+}
+.skel-line{height:10px;border-radius:4px;  background:var(--skel-line);margin-bottom:5px}
 .skel-line.l{width:85%}.skel-line.s{width:50%}
 .empty{grid-column:1/-1;text-align:center;padding:56px 24px}
 .empty-icon{font-size:38px;opacity:.3;margin-bottom:14px}
 .empty-msg{font-size:14px;color:var(--text-muted);max-width:340px;margin:0 auto;line-height:1.6}
-.err{color:#e5737a}
-
+.err{
+  color:var(--err);
+}
 /* ── Footer ──────────────────────────────────────────────────── */
 .footer{margin-top:auto;border-top:1px solid var(--border);padding:18px 32px;
   display:flex;align-items:center;justify-content:space-between;
-  font-size:11px;color:#333}
+  font-size:11px;  color:var(--text-dim);
+}
 .footer-tag{display:flex;align-items:center;gap:6px}
 .footer-dot{width:5px;height:5px;border-radius:50%;background:var(--red)}
 `;
@@ -316,16 +480,15 @@ function EngineToggle({ engine, setEngine }) {
       <span className="engine-label">ENGINE</span>
       <div className="engine-btns">
         {btns.map((b, i) => (
-          <>
-            {i > 0 && <div key={`d${i}`} className="eng-div" />}
+          <React.Fragment key={b.id}>
+            {i > 0 && <div className="eng-div" />}
             <button
-              key={b.id}
               className={`eng ${engine === b.id ? b.cls : ""}`}
               onClick={() => setEngine(b.id)}
             >
               <span>{b.icon}</span> {b.label}
             </button>
-          </>
+          </React.Fragment>
         ))}
       </div>
     </div>
@@ -411,6 +574,9 @@ export default function App() {
   const [titles, setTitles] = useState([]);
   const [showAC, setShowAC] = useState(false);
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "compare"
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("cineiq-theme") || "system",
+  );
 
   const inputRef = useRef(null);
 
@@ -422,6 +588,29 @@ export default function App() {
       .catch(() => {});
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const applyTheme = () => {
+      const resolved =
+        theme === "system" ? (media.matches ? "dark" : "light") : theme;
+
+      root.setAttribute("data-theme", resolved);
+    };
+
+    applyTheme();
+
+    if (theme === "system") {
+      media.addEventListener("change", applyTheme);
+      return () => media.removeEventListener("change", applyTheme);
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("cineiq-theme", theme);
+  }, [theme]);
 
   const search = useCallback(
     async (q = query, eng = engine) => {
@@ -554,8 +743,38 @@ export default function App() {
           <div className="nav-logo">
             CINE<span className="r">IQ</span>
           </div>
-          <div className="nav-pill">
-            <div className="nav-dot" /> Dual-Engine Rec System
+
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <div className="nav-pill">
+              <div className="nav-dot" />
+              Dual-Engine Rec System
+            </div>
+
+            <div className="theme-toggle">
+              <button
+                className={`theme-btn ${theme === "light" ? "on" : ""}`}
+                onClick={() => setTheme("light")}
+                title="Light"
+              >
+                ☀
+              </button>
+
+              <button
+                className={`theme-btn ${theme === "dark" ? "on" : ""}`}
+                onClick={() => setTheme("dark")}
+                title="Dark"
+              >
+                ☾
+              </button>
+
+              <button
+                className={`theme-btn ${theme === "system" ? "on" : ""}`}
+                onClick={() => setTheme("system")}
+                title="System"
+              >
+                ⚙
+              </button>
+            </div>
           </div>
         </nav>
 
@@ -619,13 +838,6 @@ export default function App() {
                 }}
               >
                 <EngineToggle engine={engine} setEngine={setEngine} />
-                {/* Compare shortcut */}
-                <button
-                  className={`mode-btn ${viewMode === "grid" ? "on" : ""}`}
-                  onClick={() => setViewMode("grid")}
-                >
-                  ▦ Grid
-                </button>
               </div>
               {engine === "hybrid" && (
                 <AlphaSlider alpha={alpha} setAlpha={setAlpha} />
