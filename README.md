@@ -329,3 +329,22 @@ Interests:
 ## 📜 License
 
 This project is released under the MIT License.
+
+# CineIQ
+
+A dual-engine movie recommendation system combining TF-IDF semantic vectors and LightGCN graph neural networks.
+
+## Setup & Execution Order
+
+1. `python migrate.py`
+2. `python generate_users.py`
+3. `python preprocess_tfidf.py`
+4. `python train_lightgcn.py`
+5. `python -m uvicorn main:app --reload`
+
+## Project Architecture
+
+- **PyTorch/LightGCN interaction graphs:** Modeled offline to capture behavioral signals and generate normalized embeddings.
+- **TF-IDF semantic vectors:** Vectorized `genres`, `cast`, and `director` tokens into a highly dimensional sparse matrix.
+- **FastAPI & MongoDB Atlas:** Low-latency backend inference retrieving from a 4000+ movie database.
+- **Dual-Engine React Dashboard:** Long-tail retrieval optimization bridging content discovery and behavioral personalization.
