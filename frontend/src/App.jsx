@@ -576,16 +576,10 @@ export default function App() {
                 <EngineToggle engine={engine} setEngine={setEngine} />
                 {/* Compare shortcut */}
                 <button
-                  className={`mode-btn ${viewMode === "compare" ? "on" : ""}`}
-                  onClick={() =>
-                    engine !== "compare"
-                      ? search(query, "compare")
-                      : setViewMode("grid")
-                  }
-                  title="Side-by-side TF-IDF vs LightGCN"
-                  style={{ marginLeft: "auto" }}
+                  className={`mode-btn ${viewMode === "grid" ? "on" : ""}`}
+                  onClick={() => setViewMode("grid")}
                 >
-                  ⇔ Compare
+                  ▦ Grid
                 </button>
               </div>
               {engine === "hybrid" && (
@@ -632,12 +626,11 @@ export default function App() {
                 </button>
                 <button
                   className={`mode-btn ${viewMode === "compare" ? "on" : ""}`}
-                  onClick={() => {
-                    if (viewMode !== "compare") search(submitted, "compare");
-                    else setViewMode("grid");
-                  }}
+                  onClick={() => search(query, "compare")}
+                  title="Side-by-side TF-IDF vs LightGCN"
+                  style={{ marginLeft: "auto" }}
                 >
-                  ⇔ Compare engines
+                  ⇔ Compare
                 </button>
               </div>
             )}
