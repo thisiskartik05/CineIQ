@@ -143,7 +143,7 @@ export default function App() {
     setSubmitted(q.trim());
 
     try {
-      const url = `${API_BASE}/${eng}/${encodeURIComponent(q.trim())}`;
+      const url = `${API_BASE}/recommend/${eng}/${encodeURIComponent(q.trim())}`;      
       const res = await fetch(url);
       if (!res.ok) throw new Error("Film not found — try another title.");
       const data = await res.json();
