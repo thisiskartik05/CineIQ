@@ -2,7 +2,9 @@
 @import "tailwindcss";
 
 /* ── Global resets / base styles ── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
