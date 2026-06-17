@@ -437,7 +437,6 @@ export default function App() {
 
       try {
         if (eng === "compare") {
-          // Fetch both engines in parallel for side-by-side
           const [cr, gr] = await Promise.all([
             fetch(
               `${API_BASE}/recommend/content/${encodeURIComponent(trimmed)}?top_k=6`,
@@ -446,12 +445,29 @@ export default function App() {
               `${API_BASE}/recommend/graph/${encodeURIComponent(trimmed)}?top_k=6`,
             ),
           ]);
+
           const [cd, gd] = await Promise.all([
             cr.ok ? cr.json() : { results: [] },
             gr.ok ? gr.json() : { results: [] },
           ]);
-          if (!cr.ok && !gr.ok)
-            throw new Error("Movie not found in either engine.");
+
+          if (!cr.ok && !gr.ok) {
+            const status = cr.status || gr.status;
+
+            if (status === 404) {
+              throw {
+                type: "not_found",
+                message: `"${trimmed}" wasn't found in either engine.`,
+              };
+            }
+
+            throw {
+              type: "backend",
+              message:
+                "The recommendation service returned an error. Please try again.",
+            };
+          }
+
           setCResults(cd.results || []);
           setGResults(gd.results || []);
           setViewMode("compare");
@@ -460,17 +476,43 @@ export default function App() {
             eng === "hybrid"
               ? `hybrid/${encodeURIComponent(trimmed)}?top_k=6&alpha=${alpha}`
               : `${eng}/${encodeURIComponent(trimmed)}?top_k=6`;
+
           const res = await fetch(`${API_BASE}/recommend/${suffix}`);
-          if (!res.ok)
-            throw new Error(
-              "Film not found — check spelling or try another title.",
-            );
+
+          if (!res.ok) {
+            if (res.status === 404) {
+              throw {
+                type: "not_found",
+                message: `"${trimmed}" wasn't found — check spelling or try another title.`,
+              };
+            }
+
+            throw {
+              type: "backend",
+              message:
+                "The recommendation service returned an error. Please try again.",
+            };
+          }
+
           const data = await res.json();
           setResults(data.results || []);
           setViewMode("grid");
         }
       } catch (e) {
-        setError(e.message);
+        if (e instanceof TypeError) {
+          setError({
+            type: "network",
+            message:
+              "Can't reach the server — check your connection and try again.",
+          });
+        } else if (e && e.type) {
+          setError(e);
+        } else {
+          setError({
+            type: "backend",
+            message: "Something went wrong. Please try again.",
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -602,7 +644,13 @@ export default function App() {
                 {loading ? (
                   "Searching…"
                 ) : error ? (
-                  "No results"
+                  error.type === "not_found" ? (
+                    "No results"
+                  ) : error.type === "network" ? (
+                    "Connection problem"
+                  ) : (
+                    "Service error"
+                  )
                 ) : (
                   <>
                     Because you liked <strong>"{submitted}"</strong>
@@ -644,8 +692,15 @@ export default function App() {
                 {loading && <SkeletonGrid />}
                 {error && !loading && (
                   <div className="empty">
-                    <div className="empty-icon">🎬</div>
-                    <p className="empty-msg err">{error}</p>
+                    <div className="empty-icon">
+                      {error.type === "not_found"
+                        ? "🎬"
+                        : error.type === "network"
+                          ? "📡"
+                          : "⚠️"}
+                    </div>
+
+                    <p className="empty-msg err">{error.message}</p>
                   </div>
                 )}
                 {!loading &&
