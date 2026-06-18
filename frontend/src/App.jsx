@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+
 // ─── Config ───────────────────────────────────────────────────────────────────
-// Automatically use localhost during 'npm run dev', but use Render when deployed live
 const API_BASE = import.meta.env.DEV
   ? "http://127.0.0.1:8000/api"
   : "https://cineiq-backend.onrender.com/api";
@@ -17,181 +17,86 @@ html,body,#root{
   -webkit-font-smoothing:antialiased;
   transition:background .2s,color .2s;
 }
-::-webkit-scrollbar{
-  width:4px;
-  height:4px
-}
-::-webkit-scrollbar-track{
-  background:var(--scrollbar-track)
-}
-::-webkit-scrollbar-thumb{
-  background:var(--scrollbar-thumb);
-  border-radius:4px
-}
-:root,
-[data-theme="dark"]{
-  --bg:#0f0f0f;
-  --bg-card:#1a1a1a;
-  --bg-input:#1e1e1e;
-  --surface:#242424;
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--scrollbar-track)}
+::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:4px}
+::selection{background:rgba(229,9,20,.3);color:#fff}
+
+:root,[data-theme="dark"]{
+  --bg:#0f0f0f;--bg-card:#1a1a1a;--bg-input:#1e1e1e;--surface:#242424;
   --nav-bg:rgba(15,15,15,.92);
-  --eng-active-text:#fff;
-  --red-hover:#c8070f;
-
-
-
-  --border:rgba(255,255,255,.08);
-  --border-hover:rgba(255,255,255,.16);
-
-  --red:#e50914;
-  --red-dim:rgba(229,9,20,.14);
-  --red-border:rgba(229,9,20,.25);
-
-  --green:#00e054;
-  --green-dim:rgba(0,224,84,.12);
-  --green-border:rgba(0,224,84,.25);
-
-  --purple:#a855f7;
-  --purple-dim:rgba(168,85,247,.12);
-  --purple-border:rgba(168,85,247,.25);
-
-  --text:#e5e5e5;
-  --text-muted:#808080;
-  --text-dim:#3a3a3a;
-
-  --scrollbar-track:#0f0f0f;
-  --scrollbar-thumb:#2a2a2a;
-
+  --border:rgba(255,255,255,.08);--border-hover:rgba(255,255,255,.16);
+  --red:#e50914;--red-dim:rgba(229,9,20,.14);--red-border:rgba(229,9,20,.25);
+  --green:#00e054;--green-dim:rgba(0,224,84,.12);--green-border:rgba(0,224,84,.25);
+  --purple:#a855f7;--purple-dim:rgba(168,85,247,.12);--purple-border:rgba(168,85,247,.25);
+  --text:#e5e5e5;--text-muted:#808080;--text-dim:#3a3a3a;
+  --scrollbar-track:#0f0f0f;--scrollbar-thumb:#2a2a2a;
   --ac-bg:#1c1c1c;
-
-  --shimmer-1:#1a1a1a;
-  --shimmer-2:#222;
-  --skel-line:#1f1f1f;
-
+  --shimmer-1:#1a1a1a;--shimmer-2:#222;--skel-line:#1f1f1f;
   --err:#e5737a;
-
-  --font-d:'Bebas Neue',sans-serif;
-  --r:6px;
-  --rl:12px;
+  --eng-active-text:#fff;
+  --font-d:'Bebas Neue',sans-serif;--r:6px;--rl:12px;
 }
 
 [data-theme="light"]{
-  --bg:#fafafa;
-  --bg-card:#ffffff;
-  --bg-input:#f0f0f0;
-  --surface:#eeeeee;
+  --bg:#fafafa;--bg-card:#ffffff;--bg-input:#f0f0f0;--surface:#eeeeee;
   --nav-bg:rgba(250,250,250,.85);
-  --border:rgba(0,0,0,.10);
-  --border-hover:rgba(0,0,0,.20);
-  --eng-active-text:#7a0309;
-  --red:#e50914;
-  --red-dim:rgba(229,9,20,.10);
-  --red-border:rgba(229,9,20,.30);
-  --red-hover:#c8070f;
-
-
-  --green:#0a8f3c;
-  --green-dim:rgba(10,143,60,.10);
-  --green-border:rgba(10,143,60,.30);
-
-  --purple:#9333ea;
-  --purple-dim:rgba(147,51,234,.10);
-  --purple-border:rgba(147,51,234,.30);
-
-  --text:#1a1a1a;
-  --text-muted:#5a5a5a;
-  --text-dim:#999999;
-
-  --scrollbar-track:#fafafa;
-  --scrollbar-thumb:#cccccc;
-
+  --border:rgba(0,0,0,.10);--border-hover:rgba(0,0,0,.20);
+  --red:#e50914;--red-dim:rgba(229,9,20,.10);--red-border:rgba(229,9,20,.30);
+  --green:#0a8f3c;--green-dim:rgba(10,143,60,.10);--green-border:rgba(10,143,60,.30);
+  --purple:#9333ea;--purple-dim:rgba(147,51,234,.10);--purple-border:rgba(147,51,234,.30);
+  --text:#1a1a1a;--text-muted:#5a5a5a;--text-dim:#999999;
+  --scrollbar-track:#fafafa;--scrollbar-thumb:#cccccc;
   --ac-bg:#ffffff;
-
-  --shimmer-1:#ececec;
-  --shimmer-2:#e0e0e0;
-  --skel-line:#e5e5e5;
-
+  --shimmer-1:#ececec;--shimmer-2:#e0e0e0;--skel-line:#e5e5e5;
   --err:#c0293a;
+  --eng-active-text:#7a0309;
 }
 
 /* ── Nav ─────────────────────────────────────────────────────── */
 .nav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;
   padding:0 32px;height:56px;background:var(--nav-bg);backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border)}
+  border-bottom:1px solid var(--border);gap:8px}
 .nav-logo{font-family:var(--font-d);font-size:26px;letter-spacing:2px;user-select:none}
 .nav-logo .r{color:var(--red)}
 .nav-pill{font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
   color:var(--text-muted);display:flex;align-items:center;gap:6px}
 .nav-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
 
-
-
-
-.theme-toggle{
-  display:flex;
-  align-items:center;
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--r);
-  overflow:hidden;
-  margin-left:12px;
-}
-
-.theme-btn{
-  background:none;
-  border:none;
-  color:var(--text-muted);
-  font-size:13px;
-  padding:5px 9px;
-  cursor:pointer;
-  line-height:1;
-  transition:color .15s,background .15s;
-}
-
-.theme-btn:hover{
-  color:var(--text);
-  background:rgba(128,128,128,.1);
-}
-
-.theme-btn.on{
-  color:var(--red);
-  background:var(--red-dim);
-}
+.theme-toggle{display:flex;align-items:center;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-left:12px}
+.theme-btn{background:none;border:none;color:var(--text-muted);font-size:13px;
+  padding:5px 9px;cursor:pointer;line-height:1;transition:color .15s,background .15s}
+.theme-btn:hover{color:var(--text);background:rgba(128,128,128,.1)}
+.theme-btn.on{color:var(--red);background:var(--red-dim)}
 
 @media(max-width:480px){
-  .nav{
-    padding:0 16px;
-  }
-
-  .nav-pill{
-    display:none;
-  }
+  .nav{padding:0 16px}
+  .nav-pill{display:none}
 }
+
 /* ── Hero ────────────────────────────────────────────────────── */
 .hero{position:relative;display:flex;flex-direction:column;align-items:center;
-  padding:72px 24px 56px;text-align:center;overflow:hidden}
+  padding:56px 24px 48px;text-align:center;overflow:hidden}
 .hero-glow{position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(229,9,20,.11) 0%,transparent 70%),
              radial-gradient(ellipse 35% 25% at 80% 100%,rgba(0,224,84,.07) 0%,transparent 65%)}
-.eyebrow{font-size:10px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;  color:var(--text-dim);margin-bottom:18px}
-.hero-h1{font-family:var(--font-d);font-size:clamp(68px,11vw,132px);line-height:.9;letter-spacing:4px;margin-bottom:14px}
+.hero-h1{font-family:var(--font-d);font-size:clamp(60px,10vw,116px);line-height:.9;letter-spacing:4px;margin-bottom:12px}
 .hero-h1 .iq{color:var(--red)}
-.hero-sub{font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.65;margin-bottom:44px}
+.hero-sub{font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.65;margin-bottom:36px}
 
 /* ── Search ──────────────────────────────────────────────────── */
 .search-wrap{width:100%;max-width:600px;display:flex;flex-direction:column;gap:10px;position:relative;z-index:110}
 .search-row{display:flex;gap:8px;background:var(--bg-input);border:1px solid var(--border);
   border-radius:var(--rl);padding:6px 6px 6px 18px;transition:border-color .2s,box-shadow .2s}
-.search-row:focus-within{
-  border-color:var(--border-hover);
-  box-shadow:0 0 0 3px var(--red-dim);
-}.search-input{flex:1;background:none;border:none;outline:none;color:var(--text);
+.search-row:focus-within{border-color:var(--border-hover);box-shadow:0 0 0 3px var(--red-dim)}
+.search-input{flex:1;background:none;border:none;outline:none;color:var(--text);
   font-family:'Inter',system-ui;font-size:15px;caret-color:var(--red)}
 .search-input::placeholder{color:var(--text-dim)}
 .search-btn{background:var(--red);color:#fff;border:none;border-radius:8px;padding:10px 22px;
   font-size:13px;font-weight:700;letter-spacing:.04em;cursor:pointer;
   transition:background .15s,transform .1s;white-space:nowrap}
-.search-btn:hover{background:var(--red-hover)}
+.search-btn:hover{background:#c8070f}
 .search-btn:active{transform:scale(.97)}
 .search-btn:disabled{opacity:.45;cursor:not-allowed}
 
@@ -207,13 +112,7 @@ html,body,#root{
 
 /* ── Engine toggle ───────────────────────────────────────────── */
 .engine-row{display:flex;align-items:center;gap:10px}
-.engine-label{
-  font-size:9px;
-  font-weight:700;
-  letter-spacing:.2em;
-  text-transform:uppercase;
-  color:var(--text-dim)
-}
+.engine-label{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim)}
 .engine-btns{display:flex;align-items:center;background:var(--surface);
   border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
 .eng{background:none;border:none;color:var(--text-muted);font-size:11px;font-weight:700;
@@ -230,9 +129,19 @@ html,body,#root{
 .alpha-row input[type=range]{flex:1;accent-color:var(--purple)}
 .alpha-val{font-family:monospace;font-size:11px;color:var(--purple);min-width:32px;text-align:right}
 
+/* ── Genre filter pills ─────────────────────────────────────── */
+.genre-rail{display:flex;gap:8px;overflow-x:auto;padding:4px 32px 16px;max-width:1440px;
+  margin:0 auto;width:100%;scrollbar-width:none}
+.genre-rail::-webkit-scrollbar{display:none}
+.genre-pill{flex-shrink:0;background:var(--surface);border:1px solid var(--border);
+  color:var(--text-muted);font-size:12px;font-weight:600;padding:6px 16px;
+  border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.genre-pill:hover{color:var(--text);border-color:var(--border-hover)}
+.genre-pill.on{background:var(--red-dim);border-color:var(--red-border);color:var(--red)}
+
 /* ── Film strip ──────────────────────────────────────────────── */
 .strip{width:100%;height:4px;background:repeating-linear-gradient(
-  90deg,var(--red) 0,var(--red) 20px,transparent 20px,transparent 28px);opacity:.2;margin-bottom:44px}
+  90deg,var(--red) 0,var(--red) 20px,transparent 20px,transparent 28px);opacity:.2;margin-bottom:32px}
 
 /* ── Results section ─────────────────────────────────────────── */
 .results{padding:0 32px 80px;max-width:1440px;margin:0 auto;width:100%}
@@ -245,6 +154,7 @@ html,body,#root{
 .badge-c{color:var(--red);background:var(--red-dim);border:1px solid var(--red-border)}
 .badge-g{color:var(--green);background:var(--green-dim);border:1px solid var(--green-border)}
 .badge-h{color:var(--purple);background:var(--purple-dim);border:1px solid var(--purple-border)}
+.badge-d{color:var(--text-muted);background:var(--surface);border:1px solid var(--border)}
 
 /* ── Mode toggle (grid / compare) ──────────────────────────────── */
 .mode-toggle{display:flex;gap:4px;margin-bottom:20px}
@@ -254,9 +164,9 @@ html,body,#root{
 .mode-btn.on{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.2);color:var(--text)}
 
 /* ── Card grid ───────────────────────────────────────────────── */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px}
-@media(min-width:640px){.grid{grid-template-columns:repeat(auto-fill,minmax(178px,1fr))}}
-@media(min-width:1024px){.grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:20px}
+@media(min-width:640px){.grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}}
+@media(min-width:1024px){.grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}}
 
 /* ── Movie card ──────────────────────────────────────────────── */
 .card{animation:fadeUp .38s ease both;cursor:default}
@@ -265,40 +175,39 @@ html,body,#root{
   background:var(--bg-card);margin-bottom:9px;
   outline:2px solid transparent;outline-offset:2px;transition:outline-color .2s}
 .card:hover .poster{outline-color:var(--green)}
-.skel-bg{
-  position:absolute;
-  inset:0;
-  background:linear-gradient(
-    110deg,
-    var(--shimmer-1) 30%,
-    var(--shimmer-2) 50%,
-    var(--shimmer-1) 70%
-  );
-  background-size:200% 100%;
-  animation:shimmer 1.4s infinite;
-}
+.skel-bg{position:absolute;inset:0;
+  background:linear-gradient(110deg,var(--shimmer-1) 30%,var(--shimmer-2) 50%,var(--shimmer-1) 70%);
+  background-size:200% 100%;animation:shimmer 1.4s infinite}
 @keyframes shimmer{to{background-position:-200% 0}}
 .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   transition:transform .3s,opacity .3s}
 .card:hover .poster img{transform:scale(1.04)}
 .overlay{position:absolute;inset:0;
-  background:linear-gradient(to top,rgba(0,0,0,.92) 0%,rgba(0,0,0,.35) 55%,transparent 100%);
+  background:linear-gradient(to top,rgba(0,0,0,.94) 0%,rgba(0,0,0,.55) 45%,rgba(0,0,0,.1) 80%,transparent 100%);
   display:flex;align-items:flex-end;padding:12px;opacity:0;transition:opacity .22s}
 .card:hover .overlay{opacity:1}
-.ov-inner{display:flex;flex-direction:column;gap:5px;width:100%}
-.ov-reason{font-size:11px;color:rgba(255,255,255,.7);line-height:1.4;
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ov-inner{display:flex;flex-direction:column;gap:6px;width:100%}
+.ov-reason{font-size:11px;color:rgba(255,255,255,.75);line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ov-meta{display:flex;flex-direction:column;gap:3px;margin-bottom:2px}
+.ov-director{font-size:10px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.05em}
+.ov-cast{font-size:10.5px;color:rgba(255,255,255,.85);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .match-pill{display:inline-flex;align-self:flex-start;font-size:10px;font-weight:700;
   color:var(--green);background:var(--green-dim);border:1px solid var(--green-border);
   border-radius:4px;padding:2px 7px}
 .rank{position:absolute;top:7px;left:7px;font-family:var(--font-d);font-size:13px;
   letter-spacing:1px;color:rgba(255,255,255,.45);background:rgba(0,0,0,.7);
   backdrop-filter:blur(4px);border-radius:4px;padding:2px 6px;line-height:1.2}
-.card-title{font-size:13px;font-weight:600;line-height:1.3;margin-bottom:4px;
+.card-title{font-size:13px;font-weight:600;line-height:1.3;margin-bottom:3px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   transition:color .15s}
 .card:hover .card-title{color:var(--green)}
-.card-reason{font-size:10px;color:var(--text-muted);line-height:1.3;margin-top:4px;
+.card-genres{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}
+.genre-tag{font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-muted);background:var(--surface);border:1px solid var(--border);
+  border-radius:3px;padding:1px 5px}
+.card-reason{font-size:10px;color:var(--text-muted);line-height:1.3;margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── Stars ───────────────────────────────────────────────────── */
@@ -316,13 +225,12 @@ html,body,#root{
 .cmp-card{display:flex;gap:10px;padding:10px;border-radius:var(--r);
   background:var(--bg-card);border:1px solid var(--border);margin-bottom:8px;
   animation:fadeUp .35s ease both;transition:border-color .15s}
-.cmp-card:hover{
-  border-color:var(--border-hover)
-}
+.cmp-card:hover{border-color:var(--border-hover)}
 .cmp-poster{width:44px;height:66px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--surface)}
-.cmp-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;justify-content:center}
+.cmp-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;justify-content:center}
 .cmp-title{font-size:12px;font-weight:600;line-height:1.3;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-director{font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em}
 .cmp-reason{font-size:10px;color:var(--text-muted);line-height:1.4;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cmp-score-row{display:flex;align-items:center;gap:6px}
@@ -336,32 +244,20 @@ html,body,#root{
 
 /* ── Skeleton / states ───────────────────────────────────────── */
 .skel-card{animation:fadeUp .3s ease both}
-.skel-poster{
-  aspect-ratio:2/3;
-  border-radius:var(--r);
-  background:linear-gradient(
-    110deg,
-    var(--shimmer-1) 30%,
-    var(--shimmer-2) 50%,
-    var(--shimmer-1) 70%
-  );
-  background-size:200% 100%;
-  animation:shimmer 1.4s infinite;
-  margin-bottom:9px;
-}
-.skel-line{height:10px;border-radius:4px;  background:var(--skel-line);margin-bottom:5px}
+.skel-poster{aspect-ratio:2/3;border-radius:var(--r);
+  background:linear-gradient(110deg,var(--shimmer-1) 30%,var(--shimmer-2) 50%,var(--shimmer-1) 70%);
+  background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:9px}
+.skel-line{height:10px;border-radius:4px;background:var(--skel-line);margin-bottom:5px}
 .skel-line.l{width:85%}.skel-line.s{width:50%}
 .empty{grid-column:1/-1;text-align:center;padding:56px 24px}
 .empty-icon{font-size:38px;opacity:.3;margin-bottom:14px}
 .empty-msg{font-size:14px;color:var(--text-muted);max-width:340px;margin:0 auto;line-height:1.6}
-.err{
-  color:var(--err);
-}
+.err{color:var(--err)}
+
 /* ── Footer ──────────────────────────────────────────────────── */
 .footer{margin-top:auto;border-top:1px solid var(--border);padding:18px 32px;
   display:flex;align-items:center;justify-content:space-between;
-  font-size:11px;  color:var(--text-dim);
-}
+  font-size:11px;color:var(--text-dim)}
 .footer-tag{display:flex;align-items:center;gap:6px}
 .footer-dot{width:5px;height:5px;border-radius:50%;background:var(--red)}
 `;
@@ -393,9 +289,16 @@ function Stars({ score }) {
   );
 }
 
-// ─── Movie card (grid mode) ───────────────────────────────────────────────────
+// ─── Movie card (grid / discover mode) ───────────────────────────────────────
+// Discover-grid movies have no score/reason (those only exist on search
+// results), so every field below renders defensively — a missing score
+// hides the Stars/match-pill rather than rendering "undefined% match".
 function MovieCard({ movie, index }) {
   const [loaded, setLoaded] = useState(false);
+  const hasScore = typeof movie.score === "number";
+  const genres = Array.isArray(movie.genres) ? movie.genres : [];
+  const cast = Array.isArray(movie.cast) ? movie.cast : [];
+
   return (
     <div className="card" style={{ animationDelay: `${index * 55}ms` }}>
       <div className="poster">
@@ -409,16 +312,35 @@ function MovieCard({ movie, index }) {
         />
         <div className="overlay">
           <div className="ov-inner">
-            <Stars score={movie.score} />
-            <p className="ov-reason">{movie.reason}</p>
-            <span className="match-pill">{movie.score}% match</span>
+            {hasScore && <Stars score={movie.score} />}
+            <div className="ov-meta">
+              {movie.director && (
+                <span className="ov-director">{movie.director}</span>
+              )}
+              {cast.length > 0 && (
+                <span className="ov-cast">{cast.join(", ")}</span>
+              )}
+            </div>
+            {movie.reason && <p className="ov-reason">{movie.reason}</p>}
+            {hasScore && (
+              <span className="match-pill">{movie.score}% match</span>
+            )}
           </div>
         </div>
         <div className="rank">#{index + 1}</div>
       </div>
       <div className="card-title">{movie.title}</div>
-      <Stars score={movie.score} />
-      <p className="card-reason">{movie.reason}</p>
+      {genres.length > 0 && (
+        <div className="card-genres">
+          {genres.slice(0, 3).map((g) => (
+            <span key={g} className="genre-tag">
+              {g}
+            </span>
+          ))}
+        </div>
+      )}
+      {hasScore && <Stars score={movie.score} />}
+      {movie.reason && <p className="card-reason">{movie.reason}</p>}
     </div>
   );
 }
@@ -439,6 +361,7 @@ function CompareCard({ movie, engine, index }) {
       />
       <div className="cmp-body">
         <div className="cmp-title">{movie.title}</div>
+        {movie.director && <div className="cmp-director">{movie.director}</div>}
         <div className="cmp-reason">{movie.reason}</div>
         <div className="cmp-score-row">
           <span className={`cmp-score ${isContent ? "sc" : "sg"}`}>
@@ -560,6 +483,30 @@ function Autocomplete({ query, titles, onSelect }) {
   );
 }
 
+// ─── Genre filter rail ────────────────────────────────────────────────────────
+function GenreRail({ genres, active, onSelect }) {
+  if (!genres.length) return null;
+  return (
+    <div className="genre-rail">
+      <button
+        className={`genre-pill ${active === null ? "on" : ""}`}
+        onClick={() => onSelect(null)}
+      >
+        All
+      </button>
+      {genres.map((g) => (
+        <button
+          key={g}
+          className={`genre-pill ${active === g ? "on" : ""}`}
+          onClick={() => onSelect(g)}
+        >
+          {g}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [query, setQuery] = useState("");
@@ -573,21 +520,58 @@ export default function App() {
   const [submitted, setSubmitted] = useState("");
   const [titles, setTitles] = useState([]);
   const [showAC, setShowAC] = useState(false);
-  const [viewMode, setViewMode] = useState("grid"); // "grid" | "compare"
+  const [viewMode, setViewMode] = useState("grid"); // "grid" | "compare" — only meaningful once a search is active
   const [theme, setTheme] = useState(
     () => localStorage.getItem("cineiq-theme") || "system",
   );
 
+  // ── Discover state (homepage default before any search) ────────────────────
+  const [discoverResults, setDiscoverResults] = useState([]);
+  const [discoverLoading, setDiscoverLoading] = useState(true);
+  const [discoverError, setDiscoverError] = useState(null);
+  const [genreList, setGenreList] = useState([]);
+  const [activeGenre, setActiveGenre] = useState(null);
+
   const inputRef = useRef(null);
 
-  // Load autocomplete titles once
+  // ── Load autocomplete titles + genre list once ──────────────────────────────
   useEffect(() => {
     fetch(`${API_BASE}/titles`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setTitles(d.titles || []))
       .catch(() => {});
+
+    fetch(`${API_BASE}/genres`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setGenreList(d.genres || []))
+      .catch(() => {});
+
     inputRef.current?.focus();
   }, []);
+
+  // ── Fetch discover grid on load and whenever the genre filter changes ───────
+  const fetchDiscover = useCallback(async (genre) => {
+    setDiscoverLoading(true);
+    setDiscoverError(null);
+    try {
+      const params = new URLSearchParams({ limit: "20" });
+      if (genre) params.set("genre", genre);
+      const res = await fetch(`${API_BASE}/discover?${params.toString()}`);
+      if (!res.ok) throw new Error("discover_failed");
+      const data = await res.json();
+      setDiscoverResults(data.results || []);
+    } catch {
+      setDiscoverError(
+        "Couldn't load discovery picks right now — search for a title above instead.",
+      );
+    } finally {
+      setDiscoverLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDiscover(activeGenre);
+  }, [activeGenre, fetchDiscover]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -596,7 +580,6 @@ export default function App() {
     const applyTheme = () => {
       const resolved =
         theme === "system" ? (media.matches ? "dark" : "light") : theme;
-
       root.setAttribute("data-theme", resolved);
     };
 
@@ -642,14 +625,12 @@ export default function App() {
 
           if (!cr.ok && !gr.ok) {
             const status = cr.status || gr.status;
-
             if (status === 404) {
               throw {
                 type: "not_found",
                 message: `"${trimmed}" wasn't found in either engine.`,
               };
             }
-
             throw {
               type: "backend",
               message:
@@ -675,7 +656,6 @@ export default function App() {
                 message: `"${trimmed}" wasn't found — check spelling or try another title.`,
               };
             }
-
             throw {
               type: "backend",
               message:
@@ -720,8 +700,21 @@ export default function App() {
     search(t, engine);
   };
 
-  const hasResults =
+  // Returning to discover clears all search state rather than just hiding
+  // it, so a stale "Because you liked X" header or error can't reappear
+  // inconsistently the next time a search section would otherwise render.
+  const backToDiscover = () => {
+    setResults([]);
+    setCResults([]);
+    setGResults([]);
+    setError(null);
+    setSubmitted("");
+    setQuery("");
+  };
+
+  const hasSearchResults =
     results.length > 0 || cResults.length > 0 || gResults.length > 0;
+  const showSearchSection = loading || hasSearchResults || error;
 
   const badgeCls =
     { content: "badge-c", graph: "badge-g", hybrid: "badge-h" }[engine] ||
@@ -758,7 +751,6 @@ export default function App() {
               >
                 ☀
               </button>
-
               <button
                 className={`theme-btn ${theme === "dark" ? "on" : ""}`}
                 onClick={() => setTheme("dark")}
@@ -766,7 +758,6 @@ export default function App() {
               >
                 ☾
               </button>
-
               <button
                 className={`theme-btn ${theme === "system" ? "on" : ""}`}
                 onClick={() => setTheme("system")}
@@ -778,13 +769,14 @@ export default function App() {
           </div>
         </nav>
 
-        {/* Hero */}
+        {/* Hero — tech-stack eyebrow line removed per request */}
         <section className="hero">
           <div className="hero-glow" />
-          <p className="eyebrow">
-            PyTorch · LightGCN · TF-IDF · FastAPI · MongoDB Atlas
-          </p>
-          <h1 className="hero-h1">
+          <h1
+            className="hero-h1"
+            style={{ cursor: "pointer" }}
+            onClick={backToDiscover}
+          >
             CINE<span className="iq">IQ</span>
           </h1>
           <p className="hero-sub">
@@ -818,7 +810,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Autocomplete */}
             {showAC && titles.length > 0 && (
               <Autocomplete
                 query={query}
@@ -827,7 +818,6 @@ export default function App() {
               />
             )}
 
-            {/* Engine toggle */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div
                 style={{
@@ -848,8 +838,62 @@ export default function App() {
 
         <div className="strip" />
 
-        {/* Results */}
-        {(loading || hasResults || error) && (
+        {/* ── Discovery default state — shown whenever no search is active ──── */}
+        {!showSearchSection && (
+          <>
+            <GenreRail
+              genres={genreList}
+              active={activeGenre}
+              onSelect={setActiveGenre}
+            />
+            <section className="results">
+              <div className="res-header">
+                <p className="res-label">
+                  {activeGenre ? (
+                    <>
+                      Discover · <strong>{activeGenre}</strong>
+                    </>
+                  ) : (
+                    "Discover something new"
+                  )}
+                </p>
+                <span className="res-badge badge-d">Curated picks</span>
+              </div>
+
+              <div className="grid">
+                {discoverLoading && <SkeletonGrid n={20} />}
+
+                {discoverError && !discoverLoading && (
+                  <div className="empty">
+                    <div className="empty-icon">🎬</div>
+                    <p className="empty-msg err">{discoverError}</p>
+                  </div>
+                )}
+
+                {!discoverLoading &&
+                  !discoverError &&
+                  discoverResults.length === 0 && (
+                    <div className="empty">
+                      <div className="empty-icon">🎬</div>
+                      <p className="empty-msg">
+                        No movies found for "{activeGenre}". Try a different
+                        genre.
+                      </p>
+                    </div>
+                  )}
+
+                {!discoverLoading &&
+                  !discoverError &&
+                  discoverResults.map((m, i) => (
+                    <MovieCard key={m.id ?? i} movie={m} index={i} />
+                  ))}
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* ── Search results — replaces the discovery grid while active ─────── */}
+        {showSearchSection && (
           <section className="results">
             <div className="res-header">
               <p className="res-label">
@@ -878,8 +922,7 @@ export default function App() {
               )}
             </div>
 
-            {/* View mode tabs */}
-            {!loading && hasResults && !error && (
+            {!loading && hasSearchResults && !error && (
               <div className="mode-toggle">
                 <button
                   className={`mode-btn ${viewMode === "grid" ? "on" : ""}`}
@@ -889,16 +932,21 @@ export default function App() {
                 </button>
                 <button
                   className={`mode-btn ${viewMode === "compare" ? "on" : ""}`}
-                  onClick={() => search(query, "compare")}
+                  onClick={() => search(submitted, "compare")}
                   title="Side-by-side TF-IDF vs LightGCN"
-                  style={{ marginLeft: "auto" }}
                 >
                   ⇔ Compare
+                </button>
+                <button
+                  className="mode-btn"
+                  onClick={backToDiscover}
+                  style={{ marginLeft: "auto" }}
+                >
+                  ✕ Back to Discover
                 </button>
               </div>
             )}
 
-            {/* Grid view */}
             {viewMode === "grid" && (
               <div className="grid">
                 {loading && <SkeletonGrid />}
@@ -911,8 +959,12 @@ export default function App() {
                           ? "📡"
                           : "⚠️"}
                     </div>
-
                     <p className="empty-msg err">{error.message}</p>
+                    <div style={{ marginTop: 16 }}>
+                      <button className="mode-btn" onClick={backToDiscover}>
+                        ← Back to Discover
+                      </button>
+                    </div>
                   </div>
                 )}
                 {!loading &&
@@ -923,7 +975,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Compare view */}
             {viewMode === "compare" && !loading && (
               <div className="compare-grid">
                 <div className="compare-col">

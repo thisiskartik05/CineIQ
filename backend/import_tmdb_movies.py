@@ -9,8 +9,9 @@ sentiment score, then:
        column schema the TF-IDF engine expects, with safe auto-incremented
        movieId values that cannot collide with existing rows.
 
-This is a LOCAL BATCH workflow by design — intended to run on your Mac,
-update the CSV + MongoDB, and have you manually `git push` the result.
+This is a LOCAL BATCH workflow by design — intended to run on my local machine 
+whenever I want to pull in new movies from TMDB, then update the CSV + MongoDB, 
+and have me manually `git push` the result.
 It is NOT a cloud cron job and does not attempt to run on Render or touch
 any cloud storage budget beyond the MongoDB writes you already pay for.
 

@@ -20,8 +20,6 @@ from __future__ import annotations
 import pickle
 import ast
 import re
-import requests 
-import os       
 
 import torch
 import pandas as pd
@@ -32,7 +30,6 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 
-TMDB_API_KEY = "3b68e72146bbd3b09e250fc63288613d"
 
 # ── App & CORS ────────────────────────────────────────────────────────────────
 
@@ -63,44 +60,15 @@ db = client.cineiq
 def _poster_url(title: str) -> str:
     """
     Fetch the poster URL from MongoDB Atlas.
-    If missing, fetch it live from TMDB on-the-fly and save it for next time.
+    Falls back to a TMDB placeholder if the document is missing.
     """
-    doc = db.movies.find_one({"title": title}, {"poster_path": 1, "_id": 1})
-    
-    # 1. CACHE HIT: We already have the poster in MongoDB
-    if doc and doc.get("poster_path"):
-        path = doc["poster_path"]
-        if path.startswith("/"):
-            return f"https://image.tmdb.org/t/p/w500{path}"
-
-    # 2. CACHE MISS: Fetch it live from TMDB!
-    fallback = "https://placehold.co/500x750/1a1a1a/444444.png?text=No+Poster"
-    
-    if not TMDB_API_KEY or TMDB_API_KEY == "PASTE_YOUR_TMDB_API_KEY_HERE":
-        return fallback
-
-    try:
-        # Ask TMDB's Search API for this specific movie
-        url = f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={title}"
-        res = requests.get(url, timeout=3)
-        data = res.json()
-
-        # If TMDB found the movie and it has a poster...
-        if data.get("results") and len(data["results"]) > 0:
-            new_path = data["results"][0].get("poster_path")
-            if new_path:
-                # 3. Save it to MongoDB so we never fetch it again
-                db.movies.update_one(
-                    {"title": title},
-                    {"$set": {"poster_path": new_path}},
-                    upsert=True
-                )
-                return f"https://image.tmdb.org/t/p/w500{new_path}"
-                
-    except Exception as e:
-        print(f"⚠️ TMDB Fetch Error for {title}: {e}")
-
-    return fallback
+    doc = db.movies.find_one({"title": title}, {"poster_path": 1})
+    if not doc:
+        return "https://via.placeholder.com/500x750?text=No+Poster"
+    path = doc.get("poster_path", "")
+    if path and path.startswith("/"):
+        return f"https://image.tmdb.org/t/p/w500{path}"
+    return path or "https://via.placeholder.com/500x750?text=No+Poster"
 
 
 def _parse_list_field(raw: str) -> list[str]:
@@ -155,6 +123,48 @@ def _content_reason(query_row: pd.Series, result_row: pd.Series) -> str:
     return f"{genre_label} content match via plot & tone"
 
 
+def _movie_metadata(row: pd.Series) -> dict:
+    """
+    Extracts the display metadata (genres, director, top cast) for a single
+    tmdb_df row, used to enrich every recommendation result and the discover
+    grid so the frontend can render rich cards without a second round-trip.
+
+    Returns "" / [] for missing fields rather than omitting the keys, so the
+    frontend never has to guard against an absent field — only an empty one.
+    """
+    genres = _parse_list_field(row.get("genres", ""))
+    cast = _parse_list_field(row.get("cast", ""))[:3]   # top 3 billed only
+    director = row.get("director", "")
+    director = "" if pd.isna(director) else str(director).strip()
+
+    return {
+        "genres": genres,
+        "director": director,
+        "cast": cast,
+    }
+
+
+def _movie_metadata_by_title(title: str) -> dict:
+    """
+    Looks up a movie's metadata by title against tmdb_df, for use by the
+    LightGCN graph engine, which indexes movies by a separate id space
+    (idx_to_title) that doesn't share row positions with tmdb_df.
+
+    Falls back to empty metadata rather than raising if the graph engine's
+    title isn't found in tmdb_df — this can legitimately happen if the two
+    data sources have drifted (e.g. a title was renamed in one but not the
+    other), and a missing metadata field should degrade the UI, not 500 it.
+    """
+    if not _ENGINE_A_OK:
+        return {"genres": [], "director": "", "cast": []}
+
+    idx = tmdb_lower_map.get(title.lower().strip())
+    if idx is None:
+        return {"genres": [], "director": "", "cast": []}
+
+    return _movie_metadata(tmdb_df.iloc[idx])
+
+
 # ── Engine A: TF-IDF ─────────────────────────────────────────────────────────
 
 print("⬡  Loading Engine A: TF-IDF Content Matcher …")
@@ -191,9 +201,7 @@ try:
     with open("models/lightgcn_embeddings.pkl", "rb") as f:
         graph_data = pickle.load(f)
 
-    movie_embeddings: torch.Tensor = torch.tensor(
-        graph_data["movie_embeddings"], dtype=torch.float32
-    )
+        movie_embeddings: torch.Tensor = graph_data["movie_embeddings"].clone().detach().to(torch.float32)
     # L2-normalise so dot product == cosine similarity (stable score range)
     movie_embeddings = torch.nn.functional.normalize(movie_embeddings, dim=1)
 
@@ -279,6 +287,7 @@ async def get_content_recommendations(
             "reason": _content_reason(query_row, row),
             "poster": _poster_url(title),
             "engine": "content",
+            **_movie_metadata(row),
         })
 
     return {"query": search_query, "engine": "content", "results": results}
@@ -323,6 +332,7 @@ async def get_graph_recommendations(
             "reason": "Audience behavior match — viewers who watched this also loved these films",
             "poster": _poster_url(title),
             "engine": "graph",
+            **_movie_metadata_by_title(title),
         })
         if len(results) == top_k:
             break
@@ -467,6 +477,7 @@ async def get_hybrid_recommendations(
             "content_score":  round(c_raw, 4) if c_raw is not None else None,
             "graph_score":    round(g_raw, 4) if g_raw is not None else None,
             "alpha":          round(eff_alpha, 2),
+            **_movie_metadata_by_title(title),
         })
 
     return {
@@ -502,3 +513,82 @@ async def get_titles():
         raise HTTPException(status_code=503, detail="Content engine not available.")
     titles = indices_df["title"].dropna().tolist()
     return {"titles": titles, "count": len(titles)}
+
+
+# ── Discover (homepage default state) ─────────────────────────────────────────
+
+@app.get("/api/discover")
+async def discover_movies(
+    limit: int = Query(default=20, ge=1, le=50),
+    genre: str | None = Query(
+        default=None,
+        description="Optional genre name to filter the discover set (e.g. 'Action')."
+    ),
+):
+    """
+    Returns a random sample of movies from the catalog for the homepage's
+    default discovery grid, optionally filtered to a single genre.
+
+    This is a RANDOM sample, not a "trending" sort — tmdb_ml.csv (loaded into
+    tmdb_df at startup) has no popularity/vote_average column, so there is no
+    quality signal to sort by without an extra MongoDB round-trip on every
+    page load. If true trending is wanted later, it would need to read
+    vote_average from MongoDB's enriched movie documents instead of tmdb_df.
+
+    No caching/seed is applied — every call returns a fresh random sample,
+    so reloading the homepage (or re-selecting a genre) shows a different set
+    each time rather than a frozen, repeating list.
+    """
+    if not _ENGINE_A_OK:
+        raise HTTPException(status_code=503, detail="Content engine not available.")
+
+    candidates = tmdb_df
+
+    if genre:
+        genre_lower = genre.lower().strip()
+        mask = tmdb_df["genres"].apply(
+            lambda g: genre_lower in [x.lower() for x in _parse_list_field(g)]
+        )
+        candidates = tmdb_df[mask]
+
+    if candidates.empty:
+        return {"genre": genre, "results": []}
+
+    n = min(limit, len(candidates))
+    sampled = candidates.sample(n=n)
+
+    results = []
+    for _, row in sampled.iterrows():
+        title = row["title"]
+        results.append({
+            "id":     int(row.name),
+            "title":  title,
+            "poster": _poster_url(title),
+            **_movie_metadata(row),
+        })
+
+    return {"genre": genre, "results": results}
+
+
+# ── Genre list (for the frontend filter UI) ────────────────────────────────────
+
+@app.get("/api/genres")
+async def get_genres():
+    """
+    Returns every distinct genre name found across the catalog, sorted
+    alphabetically, for the frontend's genre filter pill/dropdown control.
+    Computed on demand rather than cached — the catalog is small enough
+    (a few thousand rows) that this is sub-millisecond even uncached.
+    """
+    if not _ENGINE_A_OK:
+        raise HTTPException(status_code=503, detail="Content engine not available.")
+
+    all_genres: set[str] = set()
+    for raw in tmdb_df["genres"]:
+        all_genres.update(_parse_list_field(raw))
+
+    return {"genres": sorted(all_genres)}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
