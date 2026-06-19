@@ -509,6 +509,8 @@ function GenreRail({ genres, active, onSelect }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
+  const [serverAwake, setServerAwake] = useState(false);
+  const [bootMessage, setBootMessage] = useState("Connecting to servers...");
   const [query, setQuery] = useState("");
   const [engine, setEngine] = useState("graph");
   const [alpha, setAlpha] = useState(0.5);
@@ -533,6 +535,41 @@ export default function App() {
   const [activeGenre, setActiveGenre] = useState(null);
 
   const inputRef = useRef(null);
+
+  // ── WAKE UP THE BACKEND ───────────────────────────────────────────────────────
+  useEffect(() => {
+    let isMounted = true;
+
+    const wakeServer = async () => {
+      // If it takes more than 3 seconds, the server is definitely asleep.
+      // Update the UI to tell the user to hang tight.
+      const slowTimer = setTimeout(() => {
+        if (isMounted)
+          setBootMessage(
+            "Waking up the free-tier AI engines (this usually takes 30-50 seconds)...",
+          );
+      }, 3000);
+
+      try {
+        const res = await fetch(`${API_BASE}/health`);
+        clearTimeout(slowTimer);
+        if (res.ok && isMounted) {
+          setServerAwake(true);
+        }
+      } catch (err) {
+        clearTimeout(slowTimer);
+        if (isMounted)
+          setBootMessage(
+            "Could not connect to the backend. Please refresh the page.",
+          );
+      }
+    };
+
+    wakeServer();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // ── Load autocomplete titles + genre list once ──────────────────────────────
   useEffect(() => {
@@ -724,6 +761,59 @@ export default function App() {
     graph: "LightGCN Graph",
     hybrid: `Hybrid α=${alpha.toFixed(2)}`,
   }[engine];
+
+  // ── BLOCK UI UNTIL SERVER IS AWAKE ────────────────────────────────────────────
+  if (!serverAwake) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#0f0f0f",
+          color: "#e5e5e5",
+          fontFamily: "Inter, sans-serif",
+        }}
+      >
+        <h1
+          style={{
+            fontFamily: '"Bebas Neue", sans-serif',
+            fontSize: "48px",
+            letterSpacing: "2px",
+            margin: "0 0 16px 0",
+          }}
+        >
+          CINE<span style={{ color: "#e50914" }}>IQ</span>
+        </h1>
+        <div
+          style={{
+            width: "40px",
+            height: "40px",
+            border: "3px solid rgba(255,255,255,0.1)",
+            borderTopColor: "#e50914",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            marginBottom: "24px",
+          }}
+        />
+        <p
+          style={{
+            fontSize: "14px",
+            color: "#808080",
+            maxWidth: "300px",
+            textAlign: "center",
+            lineHeight: "1.5",
+            margin: 0,
+          }}
+        >
+          {bootMessage}
+        </p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <>
