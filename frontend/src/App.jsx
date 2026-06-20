@@ -5,8 +5,7 @@ const API_BASE = import.meta.env.DEV
   ? "http://127.0.0.1:8000/api"
   : "https://cineiq-backend.onrender.com/api";
 
-const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY;
-
+const TMDB_KEY = "3b68e72146bbd3b09e250fc63288613d";
 // ─── Design tokens (inline – no build-step dependency) ────────────────────────
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
