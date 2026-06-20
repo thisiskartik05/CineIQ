@@ -643,9 +643,9 @@ export default function App() {
         if (!res.ok) return;
         const data = await res.json();
 
-        // Race condition guard: only update if the query hasn't changed since the request fired
-        if (queryRef.current === query) {
-          setTmdbSuggestions(data.results.slice(0, 8));
+        // Race condition guard: only update if a NEWER effect run hasn't started since
+        if (queryRef.current === currentQuery) {
+          setTmdbSuggestions((data.results || []).slice(0, 8));
         }
       } catch (e) {
         console.error("TMDB fetch failed:", e);
