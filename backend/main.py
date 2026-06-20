@@ -17,6 +17,8 @@ Query param `alpha`  (default 0.5, range 0–1) controls blend weight on /hybrid
 
 from __future__ import annotations
 
+import os
+import requests
 import pickle
 import ast
 import re
@@ -70,6 +72,22 @@ def _poster_url(title: str) -> str:
         return f"https://image.tmdb.org/t/p/w500{path}"
     return path or "https://via.placeholder.com/500x750?text=No+Poster"
 
+
+# ── TMDB Proxy Route ──────────────────────────────────────────────────────────
+
+@app.get("/api/tmdb/search")
+def search_tmdb(query: str):
+    tmdb_key = os.environ.get("TMDB_API_KEY")
+    if not tmdb_key:
+        raise HTTPException(status_code=500, detail="TMDB key missing from server")
+        
+    url = f"https://api.themoviedb.org/3/search/movie?api_key={tmdb_key}&query={query}"
+    response = requests.get(url)
+    
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail="TMDB error")
+        
+    return response.json()
 
 def _parse_list_field(raw: str) -> list[str]:
     """Parse a stringified Python list field from the CSV."""
