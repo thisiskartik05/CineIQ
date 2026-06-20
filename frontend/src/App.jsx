@@ -5,6 +5,8 @@ const API_BASE = import.meta.env.DEV
   ? "http://127.0.0.1:8000/api"
   : "https://cineiq-backend.onrender.com/api";
 
+const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY;
+
 // ─── Design tokens (inline – no build-step dependency) ────────────────────────
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
@@ -103,12 +105,11 @@ html,body,#root{
 /* ── Autocomplete dropdown ───────────────────────────────────── */
 .ac-list{position:absolute;top:calc(100% + 4px);left:0;right:0;
   background:var(--ac-bg);border:1px solid var(--border);border-radius:var(--r);
-  max-height:220px;overflow-y:auto;z-index:300;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+  max-height:300px;overflow-y:auto;z-index:300;box-shadow:0 12px 40px rgba(0,0,0,.6)}
 .ac-item{padding:10px 16px;font-size:13px;color:var(--text-muted);cursor:pointer;
   border-bottom:1px solid var(--border);transition:background .1s,color .1s}
 .ac-item:last-child{border-bottom:none}
 .ac-item:hover,.ac-item.active{background:rgba(229,9,20,.1);color:var(--text)}
-.ac-item mark{background:none;color:var(--red);font-weight:700}
 
 /* ── Engine toggle ───────────────────────────────────────────── */
 .engine-row{display:flex;align-items:center;gap:10px}
@@ -290,9 +291,6 @@ function Stars({ score }) {
 }
 
 // ─── Movie card (grid / discover mode) ───────────────────────────────────────
-// Discover-grid movies have no score/reason (those only exist on search
-// results), so every field below renders defensively — a missing score
-// hides the Stars/match-pill rather than rendering "undefined% match".
 function MovieCard({ movie, index }) {
   const [loaded, setLoaded] = useState(false);
   const hasScore = typeof movie.score === "number";
@@ -392,14 +390,20 @@ function SkeletonGrid({ n = 6 }) {
 }
 
 // ─── Engine toggle ────────────────────────────────────────────────────────────
-function EngineToggle({ engine, setEngine }) {
+function EngineToggle({ engine, setEngine, disabled }) {
   const btns = [
     { id: "content", label: "TF-IDF", cls: "ac", icon: "⬡" },
     { id: "graph", label: "LightGCN", cls: "ag", icon: "◈" },
     { id: "hybrid", label: "Hybrid", cls: "ah", icon: "⚡" },
   ];
   return (
-    <div className="engine-row">
+    <div
+      className="engine-row"
+      style={{
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? "none" : "auto",
+      }}
+    >
       <span className="engine-label">ENGINE</span>
       <div className="engine-btns">
         {btns.map((b, i) => (
@@ -419,9 +423,15 @@ function EngineToggle({ engine, setEngine }) {
 }
 
 // ─── Alpha slider (hybrid) ────────────────────────────────────────────────────
-function AlphaSlider({ alpha, setAlpha }) {
+function AlphaSlider({ alpha, setAlpha, disabled }) {
   return (
-    <div className="alpha-row">
+    <div
+      className="alpha-row"
+      style={{
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? "none" : "auto",
+      }}
+    >
       <span>TF-IDF</span>
       <input
         type="range"
@@ -438,45 +448,64 @@ function AlphaSlider({ alpha, setAlpha }) {
   );
 }
 
-// ─── Autocomplete ─────────────────────────────────────────────────────────────
-function Autocomplete({ query, titles, onSelect }) {
+// ─── TMDB Autocomplete (Rich Display) ─────────────────────────────────────────
+function Autocomplete({ query, suggestions, onSelect }) {
   const [activeIdx, setActiveIdx] = useState(-1);
 
-  const filtered =
-    query.trim().length < 2
-      ? []
-      : titles
-          .filter((t) => t.toLowerCase().includes(query.toLowerCase()))
-          .slice(0, 8);
-
-  if (!filtered.length) return null;
-
-  const highlight = (title) => {
-    const idx = title.toLowerCase().indexOf(query.toLowerCase());
-    if (idx === -1) return title;
-    return (
-      <>
-        {title.slice(0, idx)}
-        <mark>{title.slice(idx, idx + query.length)}</mark>
-        {title.slice(idx + query.length)}
-      </>
-    );
-  };
+  if (!suggestions || !suggestions.length) return null;
 
   return (
     <div className="ac-list">
-      {filtered.map((t, i) => (
+      {suggestions.map((m, i) => (
         <div
-          key={t}
+          key={m.id}
           className={`ac-item ${i === activeIdx ? "active" : ""}`}
           onMouseEnter={() => setActiveIdx(i)}
           onMouseLeave={() => setActiveIdx(-1)}
           onMouseDown={(e) => {
-            e.preventDefault();
-            onSelect(t);
+            e.preventDefault(); // Prevent input blur from hiding this before click fires
+            onSelect(m);
           }}
         >
-          {highlight(t)}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {m.poster_path ? (
+              <img
+                src={`https://image.tmdb.org/t/p/w92${m.poster_path}`}
+                alt={m.title}
+                style={{
+                  width: "30px",
+                  height: "45px",
+                  objectFit: "cover",
+                  borderRadius: "3px",
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: "30px",
+                  height: "45px",
+                  background: "var(--surface)",
+                  borderRadius: "3px",
+                }}
+              />
+            )}
+            <div>
+              <div style={{ fontWeight: 600, color: "var(--text)" }}>
+                {m.title}
+              </div>
+              <div
+                style={{
+                  fontSize: "10px",
+                  color: "var(--text-muted)",
+                  marginTop: "2px",
+                }}
+              >
+                {m.release_date
+                  ? m.release_date.substring(0, 4)
+                  : "Unknown Year"}
+              </div>
+            </div>
+          </div>
         </div>
       ))}
     </div>
@@ -514,20 +543,29 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [engine, setEngine] = useState("graph");
   const [alpha, setAlpha] = useState(0.5);
+
+  // Local Database Intersection State
+  const [localTitlesSet, setLocalTitlesSet] = useState(new Set());
+
+  // TMDB Live Search State
+  const [tmdbSuggestions, setTmdbSuggestions] = useState([]);
+  const queryRef = useRef(""); // For race condition guard
+
+  // Out of Network UI State (Scenario B)
+  const [outOfNetworkMovie, setOutOfNetworkMovie] = useState(null);
+
   const [results, setResults] = useState([]);
-  const [cResults, setCResults] = useState([]); // content side for compare
-  const [gResults, setGResults] = useState([]); // graph side for compare
+  const [cResults, setCResults] = useState([]);
+  const [gResults, setGResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [submitted, setSubmitted] = useState("");
-  const [titles, setTitles] = useState([]);
   const [showAC, setShowAC] = useState(false);
-  const [viewMode, setViewMode] = useState("grid"); // "grid" | "compare" — only meaningful once a search is active
+  const [viewMode, setViewMode] = useState("grid");
   const [theme, setTheme] = useState(
     () => localStorage.getItem("cineiq-theme") || "system",
   );
 
-  // ── Discover state (homepage default before any search) ────────────────────
   const [discoverResults, setDiscoverResults] = useState([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
   const [discoverError, setDiscoverError] = useState(null);
@@ -536,13 +574,11 @@ export default function App() {
 
   const inputRef = useRef(null);
 
-  // ── WAKE UP THE BACKEND ───────────────────────────────────────────────────────
+  // ── WAKE UP THE BACKEND & FETCH LOCAL TITLES (Intersection Check) ─────────────
   useEffect(() => {
     let isMounted = true;
 
-    const wakeServer = async () => {
-      // If it takes more than 3 seconds, the server is definitely asleep.
-      // Update the UI to tell the user to hang tight.
+    const initSequence = async () => {
       const slowTimer = setTimeout(() => {
         if (isMounted)
           setBootMessage(
@@ -551,10 +587,27 @@ export default function App() {
       }, 3000);
 
       try {
-        const res = await fetch(`${API_BASE}/health`);
+        // Ping Health
+        await fetch(`${API_BASE}/health`);
         clearTimeout(slowTimer);
-        if (res.ok && isMounted) {
-          setServerAwake(true);
+        if (isMounted) setServerAwake(true);
+
+        // Load Local Titles into a Set for fast case-insensitive lookups
+        const titleRes = await fetch(`${API_BASE}/titles`);
+        if (titleRes.ok) {
+          const titleData = await titleRes.json();
+          if (isMounted && titleData.titles) {
+            setLocalTitlesSet(
+              new Set(titleData.titles.map((t) => t.trim().toLowerCase())),
+            );
+          }
+        }
+
+        // Load Genres
+        const genreRes = await fetch(`${API_BASE}/genres`);
+        if (genreRes.ok) {
+          const genreData = await genreRes.json();
+          if (isMounted && genreData.genres) setGenreList(genreData.genres);
         }
       } catch (err) {
         clearTimeout(slowTimer);
@@ -565,26 +618,42 @@ export default function App() {
       }
     };
 
-    wakeServer();
+    initSequence();
+    inputRef.current?.focus();
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // ── Load autocomplete titles + genre list once ──────────────────────────────
+  // ── TMDB DEBOUNCED LIVE SEARCH ───────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${API_BASE}/titles`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setTitles(d.titles || []))
-      .catch(() => {});
+    queryRef.current = query;
+    const currentQuery = query.trim();
 
-    fetch(`${API_BASE}/genres`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setGenreList(d.genres || []))
-      .catch(() => {});
+    if (currentQuery.length < 2 || !TMDB_KEY) {
+      setTmdbSuggestions([]);
+      return;
+    }
 
-    inputRef.current?.focus();
-  }, []);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(currentQuery)}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Race condition guard: only update if the query hasn't changed since the request fired
+        if (queryRef.current === query) {
+          setTmdbSuggestions(data.results.slice(0, 8));
+        }
+      } catch (e) {
+        console.error("TMDB fetch failed:", e);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [query]);
 
   // ── Fetch discover grid on load and whenever the genre filter changes ───────
   const fetchDiscover = useCallback(async (genre) => {
@@ -598,17 +667,15 @@ export default function App() {
       const data = await res.json();
       setDiscoverResults(data.results || []);
     } catch {
-      setDiscoverError(
-        "Couldn't load discovery picks right now — search for a title above instead.",
-      );
+      setDiscoverError("Couldn't load discovery picks right now.");
     } finally {
       setDiscoverLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchDiscover(activeGenre);
-  }, [activeGenre, fetchDiscover]);
+    if (serverAwake) fetchDiscover(activeGenre);
+  }, [activeGenre, serverAwake, fetchDiscover]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -632,10 +699,13 @@ export default function App() {
     localStorage.setItem("cineiq-theme", theme);
   }, [theme]);
 
+  // Standard search trigger (Backend call)
   const search = useCallback(
     async (q = query, eng = engine) => {
       const trimmed = q.trim();
       if (!trimmed) return;
+
+      setOutOfNetworkMovie(null); // Clear illusion state
       setLoading(true);
       setError(null);
       setResults([]);
@@ -662,17 +732,12 @@ export default function App() {
 
           if (!cr.ok && !gr.ok) {
             const status = cr.status || gr.status;
-            if (status === 404) {
+            if (status === 404)
               throw {
                 type: "not_found",
                 message: `"${trimmed}" wasn't found in either engine.`,
               };
-            }
-            throw {
-              type: "backend",
-              message:
-                "The recommendation service returned an error. Please try again.",
-            };
+            throw { type: "backend", message: "Service error." };
           }
 
           setCResults(cd.results || []);
@@ -687,17 +752,12 @@ export default function App() {
           const res = await fetch(`${API_BASE}/recommend/${suffix}`);
 
           if (!res.ok) {
-            if (res.status === 404) {
+            if (res.status === 404)
               throw {
                 type: "not_found",
-                message: `"${trimmed}" wasn't found — check spelling or try another title.`,
+                message: `"${trimmed}" wasn't found in our database.`,
               };
-            }
-            throw {
-              type: "backend",
-              message:
-                "The recommendation service returned an error. Please try again.",
-            };
+            throw { type: "backend", message: "Service error." };
           }
 
           const data = await res.json();
@@ -706,18 +766,11 @@ export default function App() {
         }
       } catch (e) {
         if (e instanceof TypeError) {
-          setError({
-            type: "network",
-            message:
-              "Can't reach the server — check your connection and try again.",
-          });
+          setError({ type: "network", message: "Can't reach the server." });
         } else if (e && e.type) {
           setError(e);
         } else {
-          setError({
-            type: "backend",
-            message: "Something went wrong. Please try again.",
-          });
+          setError({ type: "backend", message: "Something went wrong." });
         }
       } finally {
         setLoading(false);
@@ -731,15 +784,37 @@ export default function App() {
     if (e.key === "Escape") setShowAC(false);
   };
 
-  const selectTitle = (t) => {
-    setQuery(t);
+  // ── THE INTERSECTION LOGIC (Scenario A vs B) ────────────────────────────────
+  const selectTmdbMovie = (tmdbObj) => {
+    setQuery(tmdbObj.title);
     setShowAC(false);
-    search(t, engine);
+
+    // Exact case-insensitive match check against local Database
+    const isLocal = localTitlesSet.has(tmdbObj.title.trim().toLowerCase());
+
+    if (isLocal) {
+      // Scenario A: It's in our DB. Run normal ML pipeline.
+      setOutOfNetworkMovie(null);
+      search(tmdbObj.title, engine);
+    } else {
+      // Scenario B: "The Illusion". Intercept before hitting backend.
+      setResults([]);
+      setCResults([]);
+      setGResults([]);
+      setError(null);
+      setSubmitted(tmdbObj.title);
+
+      setOutOfNetworkMovie({
+        title: tmdbObj.title,
+        overview: tmdbObj.overview,
+        release_date: tmdbObj.release_date,
+        poster: tmdbObj.poster_path
+          ? `https://image.tmdb.org/t/p/w500${tmdbObj.poster_path}`
+          : null,
+      });
+    }
   };
 
-  // Returning to discover clears all search state rather than just hiding
-  // it, so a stale "Because you liked X" header or error can't reappear
-  // inconsistently the next time a search section would otherwise render.
   const backToDiscover = () => {
     setResults([]);
     setCResults([]);
@@ -747,11 +822,13 @@ export default function App() {
     setError(null);
     setSubmitted("");
     setQuery("");
+    setOutOfNetworkMovie(null);
   };
 
   const hasSearchResults =
     results.length > 0 || cResults.length > 0 || gResults.length > 0;
-  const showSearchSection = loading || hasSearchResults || error;
+  const showSearchSection =
+    loading || hasSearchResults || error || outOfNetworkMovie;
 
   const badgeCls =
     { content: "badge-c", graph: "badge-g", hybrid: "badge-h" }[engine] ||
@@ -762,7 +839,7 @@ export default function App() {
     hybrid: `Hybrid α=${alpha.toFixed(2)}`,
   }[engine];
 
-  // ── BLOCK UI UNTIL SERVER IS AWAKE ────────────────────────────────────────────
+  // ── BOOTLOADER UI ─────────────────────────────────────────────────────────────
   if (!serverAwake) {
     return (
       <div
@@ -826,13 +903,11 @@ export default function App() {
           <div className="nav-logo">
             CINE<span className="r">IQ</span>
           </div>
-
           <div style={{ display: "flex", alignItems: "center" }}>
             <div className="nav-pill">
               <div className="nav-dot" />
               Dual-Engine Rec System
             </div>
-
             <div className="theme-toggle">
               <button
                 className={`theme-btn ${theme === "light" ? "on" : ""}`}
@@ -859,7 +934,7 @@ export default function App() {
           </div>
         </nav>
 
-        {/* Hero — tech-stack eyebrow line removed per request */}
+        {/* Hero */}
         <section className="hero">
           <div className="hero-glow" />
           <h1
@@ -870,8 +945,8 @@ export default function App() {
             CINE<span className="iq">IQ</span>
           </h1>
           <p className="hero-sub">
-            Type a film you love. Switch between content semantics, graph neural
-            network, or a blended hybrid.
+            Search millions of titles. Switch between semantic content AI, graph
+            neural networks, or blended hybrid signals.
           </p>
 
           <div className="search-wrap">
@@ -888,7 +963,7 @@ export default function App() {
                 }}
                 onKeyDown={handleKey}
                 onFocus={() => setShowAC(true)}
-                onBlur={() => setTimeout(() => setShowAC(false), 150)}
+                onBlur={() => setTimeout(() => setShowAC(false), 200)} // slight delay to allow click
                 autoComplete="off"
               />
               <button
@@ -896,15 +971,15 @@ export default function App() {
                 onClick={() => search()}
                 disabled={loading || !query.trim()}
               >
-                {loading ? "Finding…" : "Find Films"}
+                {loading ? "Analyzing…" : "Analyze"}
               </button>
             </div>
 
-            {showAC && titles.length > 0 && (
+            {showAC && tmdbSuggestions.length > 0 && (
               <Autocomplete
                 query={query}
-                titles={titles}
-                onSelect={selectTitle}
+                suggestions={tmdbSuggestions}
+                onSelect={selectTmdbMovie}
               />
             )}
 
@@ -917,10 +992,18 @@ export default function App() {
                   flexWrap: "wrap",
                 }}
               >
-                <EngineToggle engine={engine} setEngine={setEngine} />
+                <EngineToggle
+                  engine={engine}
+                  setEngine={setEngine}
+                  disabled={!!outOfNetworkMovie}
+                />
               </div>
               {engine === "hybrid" && (
-                <AlphaSlider alpha={alpha} setAlpha={setAlpha} />
+                <AlphaSlider
+                  alpha={alpha}
+                  setAlpha={setAlpha}
+                  disabled={!!outOfNetworkMovie}
+                />
               )}
             </div>
           </div>
@@ -928,7 +1011,7 @@ export default function App() {
 
         <div className="strip" />
 
-        {/* ── Discovery default state — shown whenever no search is active ──── */}
+        {/* ── Discovery grid (Shown when no search is active) ──── */}
         {!showSearchSection && (
           <>
             <GenreRail
@@ -949,29 +1032,24 @@ export default function App() {
                 </p>
                 <span className="res-badge badge-d">Curated picks</span>
               </div>
-
               <div className="grid">
                 {discoverLoading && <SkeletonGrid n={20} />}
-
                 {discoverError && !discoverLoading && (
                   <div className="empty">
                     <div className="empty-icon">🎬</div>
                     <p className="empty-msg err">{discoverError}</p>
                   </div>
                 )}
-
                 {!discoverLoading &&
                   !discoverError &&
                   discoverResults.length === 0 && (
                     <div className="empty">
                       <div className="empty-icon">🎬</div>
                       <p className="empty-msg">
-                        No movies found for "{activeGenre}". Try a different
-                        genre.
+                        No movies found for "{activeGenre}".
                       </p>
                     </div>
                   )}
-
                 {!discoverLoading &&
                   !discoverError &&
                   discoverResults.map((m, i) => (
@@ -982,134 +1060,243 @@ export default function App() {
           </>
         )}
 
-        {/* ── Search results — replaces the discovery grid while active ─────── */}
+        {/* ── Search results or Out-of-Network Display ─────── */}
         {showSearchSection && (
           <section className="results">
-            <div className="res-header">
-              <p className="res-label">
-                {loading ? (
-                  "Searching…"
-                ) : error ? (
-                  error.type === "not_found" ? (
-                    "No results"
-                  ) : error.type === "network" ? (
-                    "Connection problem"
-                  ) : (
-                    "Service error"
-                  )
-                ) : (
-                  <>
-                    Because you liked <strong>"{submitted}"</strong>
-                  </>
-                )}
-              </p>
-              {!loading && !error && (
-                <span
-                  className={`res-badge ${viewMode === "compare" ? "badge-c" : badgeCls}`}
+            {/* The Illusion UI (Scenario B) */}
+            {outOfNetworkMovie && !loading && !error && (
+              <div
+                style={{
+                  animation: "fadeUp 0.4s ease both",
+                  maxWidth: "800px",
+                  margin: "0 auto",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  display: "flex",
+                  gap: "24px",
+                  padding: "24px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <img
+                  src={
+                    outOfNetworkMovie.poster ||
+                    "https://via.placeholder.com/500x750?text=No+Poster"
+                  }
+                  alt={outOfNetworkMovie.title}
+                  style={{
+                    width: "200px",
+                    borderRadius: "8px",
+                    objectFit: "cover",
+                    flexShrink: 0,
+                  }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    flex: 1,
+                    minWidth: "280px",
+                  }}
                 >
-                  {viewMode === "compare" ? "TF-IDF vs LightGCN" : badgeLabel}
-                </span>
-              )}
-            </div>
-
-            {!loading && hasSearchResults && !error && (
-              <div className="mode-toggle">
-                <button
-                  className={`mode-btn ${viewMode === "grid" ? "on" : ""}`}
-                  onClick={() => setViewMode("grid")}
-                >
-                  ▦ Grid
-                </button>
-                <button
-                  className={`mode-btn ${viewMode === "compare" ? "on" : ""}`}
-                  onClick={() => search(submitted, "compare")}
-                  title="Side-by-side TF-IDF vs LightGCN"
-                >
-                  ⇔ Compare
-                </button>
-                <button
-                  className="mode-btn"
-                  onClick={backToDiscover}
-                  style={{ marginLeft: "auto" }}
-                >
-                  ✕ Back to Discover
-                </button>
+                  <h2
+                    style={{
+                      fontSize: "28px",
+                      marginBottom: "8px",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {outOfNetworkMovie.title}{" "}
+                    {outOfNetworkMovie.release_date && (
+                      <span
+                        style={{ color: "var(--text-muted)", fontWeight: 400 }}
+                      >
+                        ({outOfNetworkMovie.release_date.substring(0, 4)})
+                      </span>
+                    )}
+                  </h2>
+                  <p
+                    style={{
+                      fontSize: "14px",
+                      color: "var(--text-muted)",
+                      lineHeight: 1.6,
+                      marginBottom: "24px",
+                    }}
+                  >
+                    {outOfNetworkMovie.overview || "No overview available."}
+                  </p>
+                  <div
+                    style={{
+                      background: "var(--surface)",
+                      padding: "16px",
+                      borderRadius: "8px",
+                      borderLeft: "3px solid var(--text-dim)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        color: "var(--text-dim)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <span style={{ fontSize: "16px" }}>ℹ️</span>
+                      <strong>Not enough audience data.</strong>
+                    </div>
+                    <p
+                      style={{
+                        fontSize: "12px",
+                        color: "var(--text-muted)",
+                        marginTop: "6px",
+                        marginLeft: "24px",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      This title was fetched from TMDB, but isn't present in
+                      CineIQ's local Machine Learning graph yet. The AI engines
+                      cannot generate mathematical recommendations without prior
+                      viewer behavior or semantic mappings.
+                    </p>
+                  </div>
+                  <div style={{ marginTop: "24px" }}>
+                    <button className="mode-btn" onClick={backToDiscover}>
+                      ← Back to Discover
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
-            {viewMode === "grid" && (
-              <div className="grid">
-                {loading && <SkeletonGrid />}
-                {error && !loading && (
-                  <div className="empty">
-                    <div className="empty-icon">
-                      {error.type === "not_found"
-                        ? "🎬"
-                        : error.type === "network"
-                          ? "📡"
-                          : "⚠️"}
+            {/* Standard Results UI (Scenario A) */}
+            {!outOfNetworkMovie && (
+              <>
+                <div className="res-header">
+                  <p className="res-label">
+                    {loading ? (
+                      "Analyzing…"
+                    ) : error ? (
+                      error.type === "not_found" ? (
+                        "No results"
+                      ) : (
+                        "Service error"
+                      )
+                    ) : (
+                      <>
+                        Because you liked <strong>"{submitted}"</strong>
+                      </>
+                    )}
+                  </p>
+                  {!loading && !error && (
+                    <span
+                      className={`res-badge ${viewMode === "compare" ? "badge-c" : badgeCls}`}
+                    >
+                      {viewMode === "compare"
+                        ? "TF-IDF vs LightGCN"
+                        : badgeLabel}
+                    </span>
+                  )}
+                </div>
+
+                {!loading && hasSearchResults && !error && (
+                  <div className="mode-toggle">
+                    <button
+                      className={`mode-btn ${viewMode === "grid" ? "on" : ""}`}
+                      onClick={() => setViewMode("grid")}
+                    >
+                      ▦ Grid
+                    </button>
+                    <button
+                      className={`mode-btn ${viewMode === "compare" ? "on" : ""}`}
+                      onClick={() => search(submitted, "compare")}
+                    >
+                      ⇔ Compare
+                    </button>
+                    <button
+                      className="mode-btn"
+                      onClick={backToDiscover}
+                      style={{ marginLeft: "auto" }}
+                    >
+                      ✕ Back
+                    </button>
+                  </div>
+                )}
+
+                {viewMode === "grid" && (
+                  <div className="grid">
+                    {loading && <SkeletonGrid />}
+                    {error && !loading && (
+                      <div className="empty">
+                        <div className="empty-icon">
+                          {error.type === "not_found" ? "🎬" : "⚠️"}
+                        </div>
+                        <p className="empty-msg err">{error.message}</p>
+                        <div style={{ marginTop: 16 }}>
+                          <button className="mode-btn" onClick={backToDiscover}>
+                            ← Back
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {!loading &&
+                      !error &&
+                      results.map((m, i) => (
+                        <MovieCard key={m.id ?? i} movie={m} index={i} />
+                      ))}
+                  </div>
+                )}
+
+                {viewMode === "compare" && !loading && (
+                  <div className="compare-grid">
+                    <div className="compare-col">
+                      <div className="compare-col-header">
+                        <span className="compare-col-title ct">
+                          ⬡ TF-IDF · Content Signal
+                        </span>
+                      </div>
+                      {cResults.length === 0 ? (
+                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                          Not found
+                        </p>
+                      ) : (
+                        cResults.map((m, i) => (
+                          <CompareCard
+                            key={m.id ?? i}
+                            movie={m}
+                            engine="content"
+                            index={i}
+                          />
+                        ))
+                      )}
                     </div>
-                    <p className="empty-msg err">{error.message}</p>
-                    <div style={{ marginTop: 16 }}>
-                      <button className="mode-btn" onClick={backToDiscover}>
-                        ← Back to Discover
-                      </button>
+                    <div className="compare-col">
+                      <div className="compare-col-header">
+                        <span className="compare-col-title cg">
+                          ◈ LightGCN · Behavioral Signal
+                        </span>
+                      </div>
+                      {gResults.length === 0 ? (
+                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                          Not found
+                        </p>
+                      ) : (
+                        gResults.map((m, i) => (
+                          <CompareCard
+                            key={m.id ?? i}
+                            movie={m}
+                            engine="graph"
+                            index={i}
+                          />
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
-                {!loading &&
-                  !error &&
-                  results.map((m, i) => (
-                    <MovieCard key={m.id ?? i} movie={m} index={i} />
-                  ))}
-              </div>
-            )}
-
-            {viewMode === "compare" && !loading && (
-              <div className="compare-grid">
-                <div className="compare-col">
-                  <div className="compare-col-header">
-                    <span className="compare-col-title ct">
-                      ⬡ TF-IDF · Content Signal
-                    </span>
-                  </div>
-                  {cResults.length === 0 ? (
-                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      Not found in content index
-                    </p>
-                  ) : (
-                    cResults.map((m, i) => (
-                      <CompareCard
-                        key={m.id ?? i}
-                        movie={m}
-                        engine="content"
-                        index={i}
-                      />
-                    ))
-                  )}
-                </div>
-                <div className="compare-col">
-                  <div className="compare-col-header">
-                    <span className="compare-col-title cg">
-                      ◈ LightGCN · Behavioral Signal
-                    </span>
-                  </div>
-                  {gResults.length === 0 ? (
-                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      Not found in graph index
-                    </p>
-                  ) : (
-                    gResults.map((m, i) => (
-                      <CompareCard
-                        key={m.id ?? i}
-                        movie={m}
-                        engine="graph"
-                        index={i}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
+              </>
             )}
           </section>
         )}
