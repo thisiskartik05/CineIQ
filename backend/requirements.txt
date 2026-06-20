@@ -25,3 +25,4 @@ dnspython==2.8.0              # required by pymongo SRV URI parsing
 requests==2.34.2              # TMDB poster fetching in migrate.py
 pydantic==2.13.4              # FastAPI request/response models
 certifi==2026.2.25            # SSL cert bundle
+requests==2.31.0
