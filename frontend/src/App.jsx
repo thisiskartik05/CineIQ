@@ -78,7 +78,7 @@ html,body,#root{
 
 /* ── Hero ────────────────────────────────────────────────────── */
 .hero{position:relative;display:flex;flex-direction:column;align-items:center;
-  padding:56px 24px 48px;text-align:center;overflow:hidden}
+  padding:32px 24px 48px;text-align:center;overflow:visible}
 .hero-glow{position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(229,9,20,.11) 0%,transparent 70%),
              radial-gradient(ellipse 35% 25% at 80% 100%,rgba(0,224,84,.07) 0%,transparent 65%)}
@@ -641,23 +641,20 @@ export default function App() {
 
     const timer = setTimeout(async () => {
       try {
-        console.log("3. Firing network fetch to TMDB for:", currentQuery);
+        // Now we ping our own backend instead of TMDB directly!
         const res = await fetch(
-          `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(currentQuery)}`,
+          `${API_BASE}/tmdb/search?query=${encodeURIComponent(currentQuery)}`,
         );
-        console.log("4. TMDB Responded with status:", res.status);
+
         if (!res.ok) return;
         const data = await res.json();
-        console.log("5. Data received. Results count:", data.results?.length);
 
+        // Race condition guard: only update if a NEWER effect run hasn't started since
         if (queryRef.current === currentQuery) {
           setTmdbSuggestions((data.results || []).slice(0, 8));
-          console.log("6. SUCCESS: Dropdown state updated!");
-        } else {
-          console.log("6. FAILED: Race condition guard blocked the update.");
         }
       } catch (e) {
-        console.error("TMDB fetch crashed:", e);
+        console.error("Proxy fetch failed:", e);
       }
     }, 300); // 300ms debounce
 
