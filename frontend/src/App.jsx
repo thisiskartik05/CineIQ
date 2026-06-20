@@ -780,7 +780,13 @@ export default function App() {
   );
 
   const handleKey = (e) => {
-    if (e.key === "Enter") search();
+    if (e.key === "Enter") {
+      if (showAC && tmdbSuggestions.length > 0) {
+        selectTmdbMovie(tmdbSuggestions[0]);
+      } else {
+        search();
+      }
+    }
     if (e.key === "Escape") setShowAC(false);
   };
 
