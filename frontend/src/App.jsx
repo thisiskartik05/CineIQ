@@ -626,28 +626,38 @@ export default function App() {
 
   // ── TMDB DEBOUNCED LIVE SEARCH ───────────────────────────────────────────────
   useEffect(() => {
+    console.log("1. Typing detected! Raw query:", query);
     queryRef.current = query;
     const currentQuery = query.trim();
 
     if (currentQuery.length < 2 || !TMDB_KEY) {
+      console.log(
+        "2. Search aborted. Too short or missing Key. Key exists?",
+        !!TMDB_KEY,
+      );
       setTmdbSuggestions([]);
       return;
     }
 
     const timer = setTimeout(async () => {
       try {
+        console.log("3. Firing network fetch to TMDB for:", currentQuery);
         const res = await fetch(
           `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(currentQuery)}`,
         );
+        console.log("4. TMDB Responded with status:", res.status);
         if (!res.ok) return;
         const data = await res.json();
+        console.log("5. Data received. Results count:", data.results?.length);
 
-        // Race condition guard: only update if a NEWER effect run hasn't started since
         if (queryRef.current === currentQuery) {
           setTmdbSuggestions((data.results || []).slice(0, 8));
+          console.log("6. SUCCESS: Dropdown state updated!");
+        } else {
+          console.log("6. FAILED: Race condition guard blocked the update.");
         }
       } catch (e) {
-        console.error("TMDB fetch failed:", e);
+        console.error("TMDB fetch crashed:", e);
       }
     }, 300); // 300ms debounce
 
